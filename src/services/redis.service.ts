@@ -143,7 +143,10 @@ export class RedisService {
    */
   public async hGetAll(key: string): Promise<Record<string, string>> {
     try {
-      return await this.client.hGetAll(key)
+      const result = await this.client.hGetAll(key)
+      return Object.fromEntries(
+        Object.entries(result).map(([key, value]) => [key, (value as any).toString()])
+      )
     } catch (error) {
       logger.error(`Redis hGetAll error for key ${key}:`, error)
       return {}
@@ -155,7 +158,7 @@ export class RedisService {
    */
   public async hMSet(key: string, data: Record<string, string>): Promise<string | null> {
     try {
-      return await this.client.hSet(key, data)
+      return (await this.client.hSet(key, data)).toString()
     } catch (error) {
       logger.error(`Redis hMSet error for key ${key}:`, error)
       return null
@@ -191,7 +194,7 @@ export class RedisService {
    */
   public async sIsMember(key: string, member: string): Promise<boolean> {
     try {
-      return await this.client.sIsMember(key, member)
+      return await !!this.client.sIsMember(key, member)
     } catch (error) {
       logger.error(`Redis sIsMember error for key ${key}, member ${member}:`, error)
       return false
@@ -239,7 +242,7 @@ export class RedisService {
    */
   public async expire(key: string, seconds: number): Promise<boolean> {
     try {
-      return await this.client.expire(key, seconds)
+      return !!(await this.client.expire(key, seconds))
     } catch (error) {
       logger.error(`Redis expire error for key ${key}:`, error)
       return false
