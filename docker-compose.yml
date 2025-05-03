@@ -1,0 +1,57 @@
+# docker-compose.yml
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: pledgepoint-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-pledgepoint}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-pledgepoint_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-pledgepoint_db}
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - pledgepoint-network
+
+  redis:
+    image: redis:alpine
+    container_name: pledgepoint-redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    networks:
+      - pledgepoint-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pledgepoint-api
+    restart: always
+    environment:
+      MONGODB_URI: mongodb://${MONGO_USER:-pledgepoint}:${MONGO_PASSWORD:-pledgepoint_password}@mongodb:27017/${MONGO_DB:-pledgepoint_db}?authSource=admin
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    networks:
+      - pledgepoint-network
+    depends_on:
+      - mongodb
+      - redis
+
+networks:
+  pledgepoint-network:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+  redis-data:

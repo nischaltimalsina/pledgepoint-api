@@ -1,0 +1,28 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = __importDefault(require("./auth"));
+const users_1 = __importDefault(require("./users"));
+const officials_1 = __importDefault(require("./officials"));
+const promises_1 = __importDefault(require("./promises"));
+const campaigns_1 = __importDefault(require("./campaigns"));
+const learning_1 = __importDefault(require("./learning"));
+const ratings_1 = __importDefault(require("./ratings"));
+const badges_1 = __importDefault(require("./badges"));
+const districts_1 = __importDefault(require("./districts"));
+const admin_1 = __importDefault(require("./admin"));
+const router = (0, express_1.Router)();
+router.use('/auth', auth_1.default);
+router.use('/users', users_1.default);
+router.use('/officials', officials_1.default);
+router.use('/promises', promises_1.default);
+router.use('/campaigns', campaigns_1.default);
+router.use('/learning', learning_1.default);
+router.use('/ratings', ratings_1.default);
+router.use('/badges', badges_1.default);
+router.use('/districts', districts_1.default);
+router.use('/admin', admin_1.default);
+exports.default = router;
