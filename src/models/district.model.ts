@@ -36,7 +36,6 @@ const districtSchema = new Schema<IDistrict>(
       required: [true, 'District code is required'],
       trim: true,
       unique: true,
-      index: true,
     },
     type: {
       type: String,

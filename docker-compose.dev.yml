@@ -3,10 +3,6 @@ services:
     image: mongo:latest
     container_name: pledgepoint-mongodb
     restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-pledgepoint}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-pledgepoint_password}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-pledgepoint_db}
     ports:
       - '27027:27017'
     volumes:
@@ -21,7 +17,7 @@ services:
     ports:
       - "4324:4321"
     environment:
-      - MONGO_URL=mongodb://doqett-database:27017/doqett-security
+      - MONGO_URL=mongodb://pledgepoint-mongodb:27017/pledgepoint-db
     networks:
       - pledgepoint-network
 

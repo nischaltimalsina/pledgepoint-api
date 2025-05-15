@@ -137,12 +137,10 @@ const campaignSchema = new Schema<ICampaign>(
     category: {
       type: String,
       required: [true, 'Category is required'],
-      index: true,
     },
     district: {
       type: String,
       required: [true, 'District is required'],
-      index: true,
     },
     goal: {
       type: Number,
@@ -153,13 +151,11 @@ const campaignSchema = new Schema<ICampaign>(
       type: Number,
       default: 0,
       min: [0, 'Current support cannot be negative'],
-      index: true,
     },
     creatorId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Creator ID is required'],
-      index: true,
     },
     supporters: [
       {
@@ -171,7 +167,6 @@ const campaignSchema = new Schema<ICampaign>(
       type: String,
       enum: ['draft', 'active', 'completed', 'archived'],
       default: 'draft',
-      index: true,
     },
     image: String,
     updates: [campaignUpdateSchema],

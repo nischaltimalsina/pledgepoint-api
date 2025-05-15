@@ -98,13 +98,11 @@ const learningModuleSchema = new Schema<ILearningModule>(
     category: {
       type: String,
       required: [true, 'Category is required'],
-      index: true,
     },
     order: {
       type: Number,
       required: [true, 'Order is required'],
       min: [0, 'Order must be a positive number'],
-      index: true,
     },
     content: {
       type: [
@@ -136,7 +134,6 @@ const learningModuleSchema = new Schema<ILearningModule>(
     },
     badgeReward: {
       type: String,
-      index: true,
     },
     requiredModules: [
       {
@@ -147,7 +144,6 @@ const learningModuleSchema = new Schema<ILearningModule>(
     region: {
       type: String,
       required: [true, 'Region is required'],
-      index: true,
     },
   },
   {

@@ -133,7 +133,6 @@ const officialSchema = new Schema<IOfficial>(
       trim: true,
       minlength: [2, 'Name must be at least 2 characters'],
       maxlength: [100, 'Name cannot exceed 100 characters'],
-      index: true,
     },
     position: {
       type: String,
@@ -141,7 +140,6 @@ const officialSchema = new Schema<IOfficial>(
       trim: true,
       minlength: [2, 'Position must be at least 2 characters'],
       maxlength: [100, 'Position cannot exceed 100 characters'],
-      index: true,
     },
     district: {
       type: String,
@@ -149,14 +147,12 @@ const officialSchema = new Schema<IOfficial>(
       trim: true,
       minlength: [2, 'District must be at least 2 characters'],
       maxlength: [100, 'District cannot exceed 100 characters'],
-      index: true,
     },
     party: {
       type: String,
       required: [true, 'Party is required'],
       trim: true,
       maxlength: [100, 'Party cannot exceed 100 characters'],
-      index: true,
     },
     term: {
       start: {
@@ -263,7 +259,6 @@ const officialSchema = new Schema<IOfficial>(
       overall: {
         type: Number,
         default: 0,
-        index: true,
       },
     },
     totalRatings: {

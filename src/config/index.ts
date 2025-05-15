@@ -79,7 +79,7 @@ dotenv.config()
   export const config: Config = {
     env: process.env.NODE_ENV || 'development',
     port: parseInt(process.env.PORT || '3000', 10),
-    mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/pledgepoint',
+    mongoUri: process.env.MONGODB_URI || 'mongodb://pledgepoint-mongodb:27017/pledgepoint-db',
     appName: process.env.APP_NAME || 'PledgePoint',
     frontend: {
       url: process.env.FRONTEND_URL || 'http://localhost:3000',

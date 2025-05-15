@@ -51,7 +51,6 @@ const badgeSchema = new Schema<IBadge>(
       required: [true, 'Badge code is required'],
       unique: true,
       trim: true,
-      index: true,
     },
     name: {
       type: String,
@@ -69,7 +68,6 @@ const badgeSchema = new Schema<IBadge>(
     category: {
       type: String,
       required: [true, 'Badge category is required'],
-      index: true,
     },
     image: {
       type: String,
@@ -130,7 +128,6 @@ const badgeSchema = new Schema<IBadge>(
 )
 
 // Indexes for efficient queries
-badgeSchema.index({ code: 1 })
 badgeSchema.index({ category: 1 })
 badgeSchema.index({ 'criteria.type': 1 })
 
