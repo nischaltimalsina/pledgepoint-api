@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { AuthService } from '../services/auth.service'
 import { logger } from '../utils/logger'
+import { AuthenticatedRequest } from '@/types/user.types'
 
 /**
  * Controller for authentication endpoints
@@ -10,17 +11,23 @@ export class AuthController {
    * Register a new user
    * @route POST /api/auth/register
    */
-  static async register(req: Request, res: Response, next: NextFunction) {
+  static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { firstName, lastName, email, password } = req.body
 
       // Register user via auth service
-      const { user } = await AuthService.registerUser({ firstName, lastName, email, password }, req)
+      const { user, accessToken } = await AuthService.registerUser(
+        { firstName, lastName, email, password },
+        req
+      )
 
       res.status(201).json({
         status: 'success',
         message: 'Registration successful. Please verify your email.',
-        data: user,
+        data: {
+          user,
+          accessToken,
+        },
       })
     } catch (error) {
       logger.error('Error registering user:', error)
@@ -32,21 +39,23 @@ export class AuthController {
    * Login user
    * @route POST /api/auth/login
    */
-  static async login(req: Request, res: Response, next: NextFunction) {
+  static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
     try {
-      const { email, password, twoFactorCode } = req.body
+      const { email, password, twoFactorCode } = userReq.body
 
       // Login user via auth service
       const result = await AuthService.loginUser({ email, password, twoFactorCode })
 
       // If two-factor authentication is required
       if (result.requiresTwoFactor) {
-        return res.status(200).json({
+        res.status(200).json({
           status: 'success',
           message: 'Two-factor authentication required',
           requiresTwoFactor: true,
           user: result.user,
         })
+        return
       }
 
       // Set refresh token as HTTP-only cookie
@@ -62,8 +71,10 @@ export class AuthController {
       res.status(200).json({
         status: 'success',
         message: 'Login successful',
-        accessToken: result.accessToken,
-        user: result.user,
+        data: {
+          accessToken: result.accessToken,
+          user: result.user,
+        },
       })
     } catch (error) {
       logger.error('Error logging in user:', error)
@@ -75,13 +86,14 @@ export class AuthController {
    * Logout user
    * @route POST /api/auth/logout
    */
-  static async logout(req: Request, res: Response, next: NextFunction) {
+  static async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
     try {
-      const userId = req.user?._id
+      const userId = userReq.user?._id
 
       if (userId) {
         // Logout user via auth service
-        await AuthService.logoutUser(userId)
+        await AuthService.logoutUser(userId.toString())
       }
 
       // Clear refresh token cookie
@@ -101,15 +113,16 @@ export class AuthController {
    * Refresh access token
    * @route POST /api/auth/refresh-token
    */
-  static async refreshToken(req: Request, res: Response, next: NextFunction) {
+  static async refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const refreshToken = req.cookies.refreshToken || req.body.refreshToken
+      const refreshToken = req.cookies?.refreshToken || req.body.refreshToken
 
       if (!refreshToken) {
-        return res.status(401).json({
+        res.status(401).json({
           status: 'fail',
           message: 'Refresh token required',
         })
+        return
       }
 
       // Refresh token via auth service
@@ -126,7 +139,9 @@ export class AuthController {
       res.status(200).json({
         status: 'success',
         message: 'Token refreshed successfully',
-        accessToken: tokens.accessToken,
+        data: {
+          accessToken: tokens.accessToken,
+        },
       })
     } catch (error) {
       logger.error('Error refreshing token:', error)
@@ -138,7 +153,7 @@ export class AuthController {
    * Verify email with token
    * @route GET /api/auth/verify-email/:token
    */
-  static async verifyEmail(req: Request, res: Response, next: NextFunction) {
+  static async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params
 
@@ -159,7 +174,11 @@ export class AuthController {
    * Resend verification email
    * @route POST /api/auth/resend-verification
    */
-  static async resendVerificationEmail(req: Request, res: Response, next: NextFunction) {
+  static async resendVerificationEmail(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { email } = req.body
 
@@ -180,7 +199,7 @@ export class AuthController {
    * Forgot password - request password reset
    * @route POST /api/auth/forgot-password
    */
-  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+  static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email } = req.body
 
@@ -201,7 +220,7 @@ export class AuthController {
    * Reset password with token
    * @route POST /api/auth/reset-password/:token
    */
-  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+  static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token } = req.params
       const { password, confirmPassword } = req.body
@@ -223,9 +242,10 @@ export class AuthController {
    * Setup two-factor authentication
    * @route POST /api/auth/two-factor/setup
    */
-  static async setupTwoFactor(req: Request, res: Response, next: NextFunction) {
+  static async setupTwoFactor(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
     try {
-      const userId = req.user._id
+      const userId = userReq.user._id.toString()
 
       // Setup two-factor authentication via auth service
       const result = await AuthService.setupTwoFactor(userId)
@@ -245,9 +265,14 @@ export class AuthController {
    * Verify and enable two-factor authentication
    * @route POST /api/auth/two-factor/enable
    */
-  static async verifyAndEnableTwoFactor(req: Request, res: Response, next: NextFunction) {
+  static async verifyAndEnableTwoFactor(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    const userReq = req as AuthenticatedRequest
     try {
-      const userId = req.user._id
+      const userId = userReq.user._id.toString()
       const { verificationCode } = req.body
 
       // Verify and enable two-factor authentication via auth service
@@ -267,9 +292,10 @@ export class AuthController {
    * Disable two-factor authentication
    * @route POST /api/auth/two-factor/disable
    */
-  static async disableTwoFactor(req: Request, res: Response, next: NextFunction) {
+  static async disableTwoFactor(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
     try {
-      const userId = req.user._id
+      const userId = userReq.user._id.toString()
       const { password } = req.body
 
       // Disable two-factor authentication via auth service

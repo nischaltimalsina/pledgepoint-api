@@ -1,9 +1,10 @@
-import mongoose, { Document, Schema } from 'mongoose'
-import bcrypt from 'bcrypt'
+import mongoose, { Document, ObjectId, Schema } from 'mongoose'
+import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { config } from '../config'
 
 export interface IUser extends Document {
+  _id: ObjectId
   firstName: string
   lastName: string
   email: string
@@ -149,7 +150,6 @@ const userSchema = new Schema<IUser>(
 )
 
 // Index for efficient queries
-userSchema.index({ email: 1 })
 userSchema.index({ role: 1 })
 userSchema.index({ accountStatus: 1 })
 userSchema.index({ level: 1 })

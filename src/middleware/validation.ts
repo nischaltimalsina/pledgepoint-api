@@ -167,6 +167,15 @@ export const ValidationSchemas = {
         message: 'Passwords do not match',
         path: ['confirmPassword'],
       }),
+
+    // Add two-factor validation schemas
+    twoFactorVerify: z.object({
+      verificationCode: z.string().min(6, 'Verification code must be at least 6 characters'),
+    }),
+
+    twoFactorDisable: z.object({
+      password: z.string().min(1, 'Password is required'),
+    }),
   },
 
   // Official schemas

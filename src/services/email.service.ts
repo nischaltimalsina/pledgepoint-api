@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer'
 import { Request } from 'express'
 import { config } from '../config'
 import { logger } from '../utils/logger'
-import { IUser } from '@/models/user.model'
+import { IUser } from '../models/user.model'
 
 /**
  * Service for sending emails
@@ -53,9 +53,12 @@ export class EmailService {
     html: string
     text?: string
     template?: string
+    data?: Record<string, any>
     attachments?: any[]
     cc?: string | string[]
     bcc?: string | string[]
+    priority?: 'low' | 'normal' | 'high'
+    category?: string
   }): Promise<void> {
     try {
       if (!this.initialized) {
@@ -71,6 +74,8 @@ export class EmailService {
         text: options.text || '',
         html: options.html,
         attachments: options.attachments,
+        priority: options.priority || 'normal',
+        headers: options.category ? { 'X-Category': options.category } : undefined,
       }
 
       await this.transporter.sendMail(mailOptions)
@@ -90,7 +95,6 @@ export class EmailService {
   static async sendVerificationEmail(email: string, token: string, req: Request): Promise<void> {
     try {
       // Build verification URL
-      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
       const verifyUrl = `${config.frontend.url}${config.frontend.emailVerificationPath}/${token}`
 
       // Build email HTML
@@ -140,6 +144,8 @@ export class EmailService {
         subject: 'Verify Your PledgePoint Account',
         html,
         text,
+        priority: 'high',
+        category: 'account',
       })
     } catch (error) {
       logger.error('Failed to send verification email:', error)
@@ -147,19 +153,74 @@ export class EmailService {
     }
   }
 
-  static async sendVerificationReminderEmail(user: IUser, firstName: string): Promise<void> {
-    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email`
-    await this.sendEmail({
-      to: user.email,
-      subject: 'Verify Your Email - Reminder',
-      template: 'email-verification-reminder',
-      data: {
-        firstName: firstName,
-        verifyUrl,
-      },
-      priority: 'high',
-      category: 'account',
-    })
+  /**
+   * Send verification reminder email
+   * @param user User object
+   * @param firstName User's first name
+   * @param req Express request object for building URLs
+   */
+  static async sendVerificationReminderEmail(
+    user: IUser,
+    firstName: string,
+    req: Request
+  ): Promise<void> {
+    try {
+      // Build verification URL
+      const verifyUrl = `${config.frontend.url}${config.frontend.emailVerificationPath}`
+
+      // Build email HTML
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #4A90E2; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">PledgePoint</h1>
+          </div>
+          <div style="padding: 20px; border: 1px solid #eee;">
+            <h2>Email Verification Reminder</h2>
+            <p>Hello ${firstName},</p>
+            <p>We noticed that you haven't verified your email address yet. Please verify your email to access all features of PledgePoint.</p>
+            <p style="margin: 30px 0; text-align: center;">
+              <a href="${verifyUrl}"
+                 style="background-color: #4A90E2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                Verify Email
+              </a>
+            </p>
+            <p>Or you can request a new verification link from the login page.</p>
+            <p>If you did not create an account with PledgePoint, please ignore this email.</p>
+          </div>
+          <div style="padding: 20px; text-align: center; color: #777; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} PledgePoint. All rights reserved.</p>
+          </div>
+        </div>
+      `
+
+      const text = `
+        PledgePoint - Email Verification Reminder
+
+        Hello ${firstName},
+
+        We noticed that you haven't verified your email address yet. Please verify your email to access all features of PledgePoint.
+
+        You can verify your email or request a new verification link from the login page:
+        ${verifyUrl}
+
+        If you did not create an account with PledgePoint, please ignore this email.
+
+        © ${new Date().getFullYear()} PledgePoint. All rights reserved.
+      `
+
+      // Send email
+      await this.sendEmail({
+        to: user.email,
+        subject: 'Verify Your Email - Reminder',
+        html,
+        text,
+        priority: 'high',
+        category: 'account',
+      })
+    } catch (error) {
+      logger.error('Failed to send verification reminder email:', error)
+      // Don't throw error for reminder emails to avoid breaking application flow
+    }
   }
 
   /**
@@ -219,6 +280,8 @@ export class EmailService {
         subject: 'Reset Your PledgePoint Password',
         html,
         text,
+        priority: 'high',
+        category: 'account',
       })
     } catch (error) {
       logger.error('Failed to send password reset email:', error)
@@ -291,6 +354,7 @@ export class EmailService {
         subject: `PledgePoint: You've Earned the ${badgeName} Badge!`,
         html,
         text,
+        category: 'gamification',
       })
     } catch (error) {
       logger.error('Failed to send badge earned email:', error)
@@ -370,6 +434,7 @@ export class EmailService {
         subject: `PledgePoint: You've Leveled Up to ${levelName}!`,
         html,
         text,
+        category: 'gamification',
       })
     } catch (error) {
       logger.error('Failed to send level up email:', error)
@@ -447,6 +512,7 @@ export class EmailService {
         subject: 'Welcome to PledgePoint!',
         html,
         text,
+        category: 'account',
       })
     } catch (error) {
       logger.error('Failed to send welcome email:', error)

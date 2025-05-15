@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import auth from './auth';
-import users from './users';
-import officials from './officials';
-import promises from './promises';
-import campaigns from './campaigns';
-import learning from './learning';
-import ratings from './ratings';
-import badges from './badges';
-import districts from './districts';
-import admin from './admin';
+import auth from './auth.routes'
+import users from './users.routes'
+import officials from './officials.routes'
+import promises from './promises.routes'
+import campaigns from './campaigns.routes'
+import learning from './learning.routes'
+import ratings from './ratings.routes'
+import badges from './badges.routes'
+import districts from './districts.routes'
+import admin from './admin.routes'
 
 const router = Router();
 

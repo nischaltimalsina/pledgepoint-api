@@ -3,6 +3,7 @@ import { User } from '../models/user.model'
 import { TokenService } from '../services/token.service'
 import { AppError } from './error-handler'
 import { logger } from '../utils/logger'
+import { AuthenticatedRequest } from '@/types/user.types'
 
 /**
  * Authentication middleware
@@ -15,10 +16,11 @@ export class AuthMiddleware {
    * @param next Express next function
    */
   static async authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const authenticatedReq = req as AuthenticatedRequest
     try {
       // Get token from authorization header or cookies
       const token =
-        TokenService.extractTokenFromHeader(req.headers.authorization) ||
+        TokenService.extractTokenFromHeader(authenticatedReq.headers.authorization) ||
         (req.cookies?.token as string)
 
       if (!token) {
@@ -36,7 +38,7 @@ export class AuthMiddleware {
       }
 
       // Add user to request
-      req.user = user
+      authenticatedReq.user = user
       next()
     } catch (error) {
       if (error instanceof AppError) {
@@ -54,11 +56,12 @@ export class AuthMiddleware {
    */
   static authorize(roles: string[]): (req: Request, res: Response, next: NextFunction) => void {
     return (req: Request, res: Response, next: NextFunction): void => {
-      if (!req.user) {
+      const authenticatedReq = req as AuthenticatedRequest
+      if (!authenticatedReq.user) {
         return next(new AppError(401, 'Authentication required'))
       }
 
-      if (!roles.includes(req.user.role)) {
+      if (!roles.includes(authenticatedReq.user.role)) {
         return next(new AppError(403, 'Unauthorized access'))
       }
 
@@ -73,8 +76,9 @@ export class AuthMiddleware {
    * @param next Express next function
    */
   static async verifyEmailToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const authenticatedReq = req as AuthenticatedRequest
     try {
-      const { token } = req.params
+      const { token } = authenticatedReq.params
 
       if (!token) {
         return next(new AppError(400, 'Verification token is required'))
@@ -89,7 +93,11 @@ export class AuthMiddleware {
       }
 
       // Add user ID to request
-      req.user = { id: decoded.id }
+      const user = await User.findById(decoded.id)
+      if (!user) {
+        return next(new AppError(404, 'User not found'))
+      }
+      authenticatedReq.user = user
       next()
     } catch (error) {
       if (error instanceof AppError) {
@@ -107,8 +115,9 @@ export class AuthMiddleware {
    * @param next Express next function
    */
   static async verifyResetToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const authenticatedReq = req as AuthenticatedRequest
     try {
-      const { token } = req.params
+      const { token } = authenticatedReq.params
 
       if (!token) {
         return next(new AppError(400, 'Reset token is required'))
@@ -122,8 +131,16 @@ export class AuthMiddleware {
         return next(new AppError(400, 'Invalid reset token'))
       }
 
-      // Add user ID to request
-      req.user = { id: decoded.id }
+      // Fetch user data from database
+      const user = await User.findById(decoded.id)
+
+      // Check if user exists
+      if (!user) {
+        return next(new AppError(404, 'User not found'))
+      }
+
+      // Add user to request
+      authenticatedReq.user = user
       next()
     } catch (error) {
       if (error instanceof AppError) {
@@ -142,11 +159,12 @@ export class AuthMiddleware {
    * @param next Express next function
    */
   static async optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const authenticatedReq = req as AuthenticatedRequest
     try {
       // Get token from authorization header or cookies
       const token =
-        TokenService.extractTokenFromHeader(req.headers.authorization) ||
-        (req.cookies?.token as string)
+        TokenService.extractTokenFromHeader(authenticatedReq.headers.authorization) ||
+        (authenticatedReq.cookies?.token as string)
 
       if (!token) {
         // No token, continue without authentication
@@ -161,7 +179,7 @@ export class AuthMiddleware {
 
       if (user && user.accountStatus !== 'suspended' && user.active) {
         // Add user to request
-        req.user = user
+        authenticatedReq.user = user
       }
 
       next()

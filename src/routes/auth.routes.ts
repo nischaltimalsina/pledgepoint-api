@@ -63,14 +63,14 @@ router.post('/two-factor/setup', AuthController.setupTwoFactor)
 // Verify and enable two-factor authentication
 router.post(
   '/two-factor/enable',
-  validate({ verificationCode: 'string' }),
+  validate(ValidationSchemas.user.twoFactorVerify), // Add this schema definition
   AuthController.verifyAndEnableTwoFactor
 )
 
 // Disable two-factor authentication
 router.post(
   '/two-factor/disable',
-  validate({ password: 'string' }),
+  validate(ValidationSchemas.user.twoFactorDisable), // Add this schema definition
   AuthController.disableTwoFactor
 )
 

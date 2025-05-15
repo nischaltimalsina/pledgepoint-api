@@ -1,12 +1,18 @@
 import { Request } from 'express'
-import { IUser as User } from '../models/user.model'
+import { IUser } from '../models/user.model'
 
-// Extend Express Request interface for authenticated requests
+/**
+ * Interface for requests that require authentication
+ * Extends the Express Request interface with user property
+ */
 export interface AuthenticatedRequest extends Request {
-  user: User
+  user: IUser
 }
 
-// Interface for optional authentication
+/**
+ * Interface for requests with optional authentication
+ * Extends the Express Request interface with optional user property
+ */
 export interface OptionalAuthRequest extends Request {
-  user?: User
+  user?: IUser
 }
