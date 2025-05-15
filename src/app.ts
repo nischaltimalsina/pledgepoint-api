@@ -11,14 +11,14 @@ import { logger } from './utils/logger'
 import { redis } from './services/redis.service'
 
 // Import routes
-import authRoutes from './routes/auth'
-import officialsRoutes from './routes/officials'
-import promisesRoutes from './routes/promises'
-import campaignsRoutes from './routes/campaigns'
-import usersRoutes from './routes/users'
-import learningRoutes from './routes/learning'
-import badgesRoutes from './routes/badges'
-import adminRoutes from './routes/admin'
+import authRoutes from './routes/auth.routes'
+import officialsRoutes from './routes/officials.routes'
+import promisesRoutes from './routes/promises.routes'
+import campaignsRoutes from './routes/campaigns.routes'
+import usersRoutes from './routes/users.routes'
+import learningRoutes from './routes/learning.routes'
+import badgesRoutes from './routes/badges.routes'
+import adminRoutes from './routes/admin.routes'
 
 dotenv.config()
 

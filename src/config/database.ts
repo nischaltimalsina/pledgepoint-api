@@ -17,18 +17,18 @@ interface DatabaseCollection {
 
 // Database configuration interface
 interface DatabaseConfig {
-  uri: string;
+  uri: string
   options: {
-    autoIndex: boolean;
-    serverSelectionTimeoutMS: number;
-    socketTimeoutMS: number;
-    maxPoolSize: number;
-    minPoolSize: number;
-    retryWrites: boolean;
-    writeConcern: { w: string };
-  };
-  replicas: DatabaseReplica[];
-  collections: DatabaseCollection[];
+    autoIndex: boolean
+    serverSelectionTimeoutMS: number
+    socketTimeoutMS: number
+    maxPoolSize: number
+    minPoolSize: number
+    retryWrites: boolean
+    writeConcern: { w: number }
+  }
+  replicas: DatabaseReplica[]
+  collections: DatabaseCollection[]
 }
 
 // Create database configuration
@@ -41,7 +41,7 @@ export const databaseConfig: DatabaseConfig = {
     maxPoolSize: 50,
     minPoolSize: 10,
     retryWrites: true,
-    writeConcern: { w: 'majority' },
+    writeConcern: { w: 1 },
   },
   replicas: process.env.MONGODB_REPLICAS
     ? process.env.MONGODB_REPLICAS.split(',').map((uri, index) => ({
@@ -74,12 +74,7 @@ export const databaseConfig: DatabaseConfig = {
     },
     {
       name: 'promises',
-      indexes: [
-        { officialId: 1 },
-        { status: 1 },
-        { category: 1 },
-        { datePromised: -1 },
-      ],
+      indexes: [{ officialId: 1 }, { status: 1 }, { category: 1 }, { datePromised: -1 }],
     },
     {
       name: 'campaigns',
@@ -93,19 +88,11 @@ export const databaseConfig: DatabaseConfig = {
     },
     {
       name: 'learning_modules',
-      indexes: [
-        { category: 1 },
-        { region: 1 },
-        { order: 1 },
-      ],
+      indexes: [{ category: 1 }, { region: 1 }, { order: 1 }],
     },
     {
       name: 'activities',
-      indexes: [
-        { userId: 1 },
-        { type: 1 },
-        { createdAt: -1 },
-      ],
+      indexes: [{ userId: 1 }, { type: 1 }, { createdAt: -1 }],
     },
   ],
-};
+}

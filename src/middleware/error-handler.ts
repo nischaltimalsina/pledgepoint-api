@@ -106,14 +106,15 @@ export const errorHandler = (
   // Send appropriate response based on environment
   if (process.env.NODE_ENV === 'production' && !isOperational) {
     // Don't expose server errors in production
-    return res.status(500).json({
+    res.status(500).json({
       status: 'error',
       message: 'Something went wrong',
     })
+    return
   }
 
   // Development or operational errors can include more details
-  return res.status(statusCode).json({
+  res.status(statusCode).json({
     status: statusCode >= 500 ? 'error' : 'fail',
     message,
     ...(errorData && { data: errorData }),

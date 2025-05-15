@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer'
 import { Request } from 'express'
 import { config } from '../config'
 import { logger } from '../utils/logger'
+import { IUser } from '@/models/user.model'
 
 /**
  * Service for sending emails
@@ -51,6 +52,7 @@ export class EmailService {
     subject: string
     html: string
     text?: string
+    template?: string
     attachments?: any[]
     cc?: string | string[]
     bcc?: string | string[]
@@ -143,6 +145,21 @@ export class EmailService {
       logger.error('Failed to send verification email:', error)
       throw new Error(`Failed to send verification email: ${(error as Error).message}`)
     }
+  }
+
+  static async sendVerificationReminderEmail(user: IUser, firstName: string): Promise<void> {
+    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email`
+    await this.sendEmail({
+      to: user.email,
+      subject: 'Verify Your Email - Reminder',
+      template: 'email-verification-reminder',
+      data: {
+        firstName: firstName,
+        verifyUrl,
+      },
+      priority: 'high',
+      category: 'account',
+    })
   }
 
   /**

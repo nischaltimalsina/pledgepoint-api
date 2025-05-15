@@ -45,7 +45,7 @@ dotenv.config()
 
   type UnitAnyCase = Unit | Uppercase<Unit> | Lowercase<Unit>
 
-  type StringValue = `${number}` | `${number}${UnitAnyCase}` | `${number} ${UnitAnyCase}`
+  export type StringValue = `${number}` | `${number}${UnitAnyCase}` | `${number} ${UnitAnyCase}`
 
   // Configuration interface
   interface Config {

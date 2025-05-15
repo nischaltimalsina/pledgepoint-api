@@ -131,7 +131,7 @@ export class RedisService {
    */
   public async hGet(key: string, field: string): Promise<string | null> {
     try {
-      return await this.client.hGet(key, field)
+      return (await this.client.hGet(key, field)) as string
     } catch (error) {
       logger.error(`Redis hGet error for key ${key}, field ${field}:`, error)
       return null
