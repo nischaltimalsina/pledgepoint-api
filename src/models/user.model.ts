@@ -71,6 +71,7 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters'],
+      select: false, // Don't include password in queries by default
     },
     role: {
       type: String,
@@ -181,8 +182,12 @@ userSchema.methods.comparePassword = async function (candidatePassword: string):
   // Add pepper to candidate password
   const pepperedPassword = `${candidatePassword}${config.security.passwordHash.pepper}`
 
+  // Get the password field (since it's not selected by default)
+  const user = await User.findById(this._id).select('+password')
+  if (!user) return false
+
   // Compare passwords
-  return bcrypt.compare(pepperedPassword, this.password)
+  return bcrypt.compare(pepperedPassword, user.password)
 }
 
 // Generate password reset token
@@ -194,7 +199,7 @@ userSchema.methods.generatePasswordResetToken = async function (): Promise<strin
   this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex')
 
   // Set expiration (1 hour)
-  this.passwordResetExpires = Date.now() + 3600000
+  this.passwordResetExpires = new Date(Date.now() + 3600000)
 
   await this.save()
   return resetToken
@@ -209,7 +214,7 @@ userSchema.methods.generateEmailVerificationToken = async function (): Promise<s
   this.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex')
 
   // Set expiration (24 hours)
-  this.emailVerificationExpires = Date.now() + 86400000
+  this.emailVerificationExpires = new Date(Date.now() + 86400000)
 
   await this.save()
   return verificationToken

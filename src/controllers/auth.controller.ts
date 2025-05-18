@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { AuthService } from '../services/auth.service'
 import { logger } from '../utils/logger'
-import { AuthenticatedRequest } from '@/types/user.types'
+import { AuthenticatedRequest } from '../types/user.types'
 
 /**
  * Controller for authentication endpoints
@@ -13,20 +13,36 @@ export class AuthController {
    */
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { firstName, lastName, email, password } = req.body
+      const { firstName, lastName, email, password, confirmPassword } = req.body
+
+      // Check if passwords match
+      if (password !== confirmPassword) {
+        res.status(400).json({
+          status: 'fail',
+          message: 'Passwords do not match',
+        })
+        return
+      }
 
       // Register user via auth service
-      const { user, accessToken } = await AuthService.registerUser(
-        { firstName, lastName, email, password },
-        req
-      )
+      const result = await AuthService.registerUser({ firstName, lastName, email, password }, req)
+
+      // Set refresh token as HTTP-only cookie
+      if (result.refreshToken) {
+        res.cookie('refreshToken', result.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        })
+      }
 
       res.status(201).json({
         status: 'success',
         message: 'Registration successful. Please verify your email.',
         data: {
-          user,
-          accessToken,
+          user: result.user,
+          accessToken: result.accessToken,
         },
       })
     } catch (error) {
@@ -40,9 +56,8 @@ export class AuthController {
    * @route POST /api/auth/login
    */
   static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const userReq = req as AuthenticatedRequest
     try {
-      const { email, password, twoFactorCode } = userReq.body
+      const { email, password, twoFactorCode } = req.body
 
       // Login user via auth service
       const result = await AuthService.loginUser({ email, password, twoFactorCode })
@@ -307,6 +322,91 @@ export class AuthController {
       })
     } catch (error) {
       logger.error('Error disabling two-factor authentication:', error)
+      next(error)
+    }
+  }
+
+  /**
+   * Get current user profile (from token)
+   * @route GET /api/auth/me
+   */
+  static async getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
+    try {
+      const user = userReq.user
+
+      res.status(200).json({
+        status: 'success',
+        data: {
+          user,
+        },
+      })
+    } catch (error) {
+      logger.error('Error getting current user:', error)
+      next(error)
+    }
+  }
+
+  /**
+   * Update current user profile
+   * @route PATCH /api/auth/me
+   */
+  static async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
+    try {
+      const userId = userReq.user._id.toString()
+      const { firstName, lastName, district, location, bio } = req.body
+
+      // Update user profile via auth service
+      const updatedUser = await AuthService.updateProfile(userId, {
+        firstName,
+        lastName,
+        district,
+        location,
+        bio,
+      })
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Profile updated successfully',
+        data: {
+          user: updatedUser,
+        },
+      })
+    } catch (error) {
+      logger.error('Error updating profile:', error)
+      next(error)
+    }
+  }
+
+  /**
+   * Change password
+   * @route POST /api/auth/change-password
+   */
+  static async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const userReq = req as AuthenticatedRequest
+    try {
+      const userId = userReq.user._id.toString()
+      const { currentPassword, newPassword, confirmPassword } = req.body
+
+      // Check if new passwords match
+      if (newPassword !== confirmPassword) {
+        res.status(400).json({
+          status: 'fail',
+          message: 'New passwords do not match',
+        })
+        return
+      }
+
+      // Change password via auth service
+      await AuthService.changePassword(userId, currentPassword, newPassword)
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Password changed successfully',
+      })
+    } catch (error) {
+      logger.error('Error changing password:', error)
       next(error)
     }
   }

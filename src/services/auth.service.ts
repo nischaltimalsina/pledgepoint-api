@@ -462,6 +462,86 @@ export class AuthService {
   }
 
   /**
+   * Update user profile
+   * @param userId User ID
+   * @param data Profile data to update
+   * @returns Updated user
+   */
+  static async updateProfile(
+    userId: string,
+    data: {
+      firstName?: string
+      lastName?: string
+      district?: string
+      location?: string
+      bio?: string
+    }
+  ): Promise<any> {
+    try {
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { $set: data },
+        { new: true, runValidators: true }
+      )
+
+      if (!user) {
+        throw new AppError(404, 'User not found')
+      }
+
+      return user
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error
+      }
+      logger.error('Error updating profile:', error)
+      throw new AppError(500, 'Profile update failed')
+    }
+  }
+
+  /**
+   * Change password
+   * @param userId User ID
+   * @param currentPassword Current password
+   * @param newPassword New password
+   */
+  static async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    try {
+      // Get user with password
+      const user = await User.findById(userId).select('+password')
+
+      if (!user) {
+        throw new AppError(404, 'User not found')
+      }
+
+      // Verify current password
+      const isPasswordCorrect = await user.comparePassword(currentPassword)
+
+      if (!isPasswordCorrect) {
+        throw new AppError(401, 'Current password is incorrect')
+      }
+
+      // Validate new password strength
+      const passwordValidation = PasswordUtils.validatePasswordStrength(newPassword)
+      if (!passwordValidation.isValid) {
+        throw new AppError(400, passwordValidation.message)
+      }
+
+      // Update password and save
+      user.password = newPassword
+      await user.save()
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error
+      }
+      logger.error('Error changing password:', error)
+      throw new AppError(500, 'Password change failed')
+    }
+  }
+  /**
    * Setup two-factor authentication
    * @param userId User ID
    * @returns 2FA setup data
