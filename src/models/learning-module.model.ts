@@ -66,6 +66,7 @@ export interface IModuleContent {
  * Interface for LearningModule document
  */
 export interface ILearningModule extends Document {
+  _id: Types.ObjectId
   title: string
   description: string
   category: string
