@@ -519,4 +519,72 @@ export class EmailService {
       // Don't throw error for notification emails
     }
   }
+
+  /**
+   * Send email for error alerts
+   * @param email Recipient's email address
+   * @param alert Alert object containing error details
+   */
+  static async sendAlertEmail(
+    email: string,
+    alert: {
+      type: string
+      message: string
+      severity: string
+      category: string
+      error: Error
+      count?: number
+    }
+  ): Promise<void> {
+    try {
+      // Build email HTML
+      const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #4A90E2; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">PledgePoint</h1>
+        </div>
+        <div style="padding: 20px; border: 1px solid #eee;">
+          <h2>Alert from PledgePoint</h2>
+          <p><strong>Type:</strong> ${alert.type}</p>
+          <p><strong>Message:</strong> ${alert.message}</p>
+          <p><strong>Severity:</strong> ${alert.severity}</p>
+          <p><strong>Category:</strong> ${alert.category}</p>
+          ${alert.count ? `<p><strong>Count:</strong> ${alert.count}</p>` : ''}
+          <p><strong>Error Stack:</strong></p>
+          <pre style="background: #f4f4f4; padding: 10px; font-size: 12px;">${alert.error.stack}</pre>
+        </div>
+        <div style="padding: 20px; text-align: center; color: #777; font-size: 12px;">
+          <p>© ${new Date().getFullYear()} PledgePoint. All rights reserved.</p>
+        </div>
+      </div>
+    `
+
+      // Build plain text version
+      const text = `
+PledgePoint - Alert
+
+Type: ${alert.type}
+Message: ${alert.message}
+Severity: ${alert.severity}
+Category: ${alert.category}
+${alert.count ? `Count: ${alert.count}\n` : ''}
+Error Stack:
+${alert.error.stack}
+
+© ${new Date().getFullYear()} PledgePoint. All rights reserved.
+    `
+
+      // Send email
+      await this.sendEmail({
+        to: email,
+        subject: `PledgePoint Alert: ${alert.type} [${alert.severity}]`,
+        html,
+        text,
+        category: 'alert',
+      })
+    } catch (error) {
+      logger.error(`Failed to send alert email to ${email}:`, error)
+      // Don't throw error for notification emails
+    }
+  }
 }

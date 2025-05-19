@@ -7,6 +7,7 @@ import { AppError } from '../middleware/error-handler'
 import { logger } from '../utils/logger'
 import { Request } from 'express'
 import { PasswordUtils } from '../utils/password'
+import { TwoFactorService } from './twofactor.service'
 
 /**
  * Authentication service
@@ -542,12 +543,11 @@ export class AuthService {
     }
   }
   /**
-   * Setup two-factor authentication
-   * @param userId User ID
-   * @returns 2FA setup data
+   * Setup two-factor authentication (updated method)
    */
   static async setupTwoFactor(userId: string): Promise<{
-    secret: string
+    qrCodeDataURL: string
+    manualEntryKey: string
     backupCodes: string[]
   }> {
     try {
@@ -558,38 +558,29 @@ export class AuthService {
         throw new AppError(404, 'User not found')
       }
 
-      // Generate secret for 2FA
-      // In a real implementation, use libraries like speakeasy
-      const twoFactorSecret = crypto.randomBytes(32).toString('hex')
-
-      // Generate backup codes
-      const backupCodes = []
-      for (let i = 0; i < 10; i++) {
-        backupCodes.push(crypto.randomBytes(4).toString('hex').toUpperCase())
+      if (user.twoFactorEnabled) {
+        throw new AppError(400, 'Two-factor authentication is already enabled')
       }
 
-      // Save to user but don't enable 2FA yet
-      user.twoFactorSecret = twoFactorSecret
-      user.backupCodes = backupCodes
-      await user.save()
+      // Setup 2FA using TwoFactorService
+      const result = await TwoFactorService.setupTwoFactor(user)
 
       return {
-        secret: twoFactorSecret,
-        backupCodes,
+        qrCodeDataURL: result.qrCodeDataURL,
+        manualEntryKey: result.manualEntryKey,
+        backupCodes: result.backupCodes,
       }
     } catch (error) {
       if (error instanceof AppError) {
         throw error
       }
-      logger.error('Error setting up two-factor authentication:', error)
+      logger.error(`Error setting up two-factor authentication for user ${userId}:`, error)
       throw new AppError(500, 'Two-factor authentication setup failed')
     }
   }
 
   /**
-   * Verify and enable two-factor authentication
-   * @param userId User ID
-   * @param verificationCode Verification code
+   * Verify and enable two-factor authentication (updated method)
    */
   static async verifyAndEnableTwoFactor(userId: string, verificationCode: string): Promise<void> {
     try {
@@ -600,61 +591,102 @@ export class AuthService {
         throw new AppError(404, 'User not found')
       }
 
-      if (!user.twoFactorSecret) {
-        throw new AppError(400, 'Two-factor authentication not set up yet')
-      }
-
-      // Verify code - in real implementation use speakeasy
-      const isValidCode = this.verifyTwoFactorCode(user, verificationCode)
-
-      if (!isValidCode) {
-        throw new AppError(401, 'Invalid verification code')
-      }
-
-      // Enable 2FA
-      user.twoFactorEnabled = true
-      await user.save()
+      // Verify and enable using TwoFactorService
+      await TwoFactorService.verifyAndEnable(user, verificationCode)
     } catch (error) {
       if (error instanceof AppError) {
         throw error
       }
-      logger.error('Error enabling two-factor authentication:', error)
+      logger.error(`Error enabling two-factor authentication for user ${userId}:`, error)
       throw new AppError(500, 'Failed to enable two-factor authentication')
     }
   }
 
   /**
-   * Disable two-factor authentication
-   * @param userId User ID
-   * @param password User password for verification
+   * Disable two-factor authentication (updated method)
    */
   static async disableTwoFactor(userId: string, password: string): Promise<void> {
     try {
       // Find user
-      const user = await User.findById(userId).select('+password')
+      const user = await User.findById(userId)
 
       if (!user) {
         throw new AppError(404, 'User not found')
       }
 
-      // Verify password
-      const isPasswordCorrect = await user.comparePassword(password)
-
-      if (!isPasswordCorrect) {
-        throw new AppError(401, 'Invalid password')
-      }
-
-      // Disable 2FA
-      user.twoFactorEnabled = false
-      user.twoFactorSecret = undefined
-      user.backupCodes = undefined
-      await user.save()
+      // Disable using TwoFactorService
+      await TwoFactorService.disable(user, password)
     } catch (error) {
       if (error instanceof AppError) {
         throw error
       }
-      logger.error('Error disabling two-factor authentication:', error)
+      logger.error(`Error disabling two-factor authentication for user ${userId}:`, error)
       throw new AppError(500, 'Failed to disable two-factor authentication')
+    }
+  }
+
+  /**
+   * Verify two-factor authentication code (updated method)
+   */
+  private static verifyTwoFactorCode(user: IUser, code: string): boolean {
+    // Use TwoFactorService for verification
+    const result = TwoFactorService.verifyLoginCode(user, code)
+
+    // If a backup code was used, remove it
+    if (result.isValid && result.isBackupCode && result.usedBackupCodeIndex !== undefined) {
+      // Remove used backup code asynchronously
+      TwoFactorService.removeUsedBackupCode(user, result.usedBackupCodeIndex).catch((error) => {
+        logger.error(`Error removing used backup code:`, error)
+      })
+    }
+
+    return result.isValid
+  }
+
+  /**
+   * Regenerate backup codes
+   */
+  static async regenerateBackupCodes(userId: string): Promise<string[]> {
+    try {
+      // Find user
+      const user = await User.findById(userId)
+
+      if (!user) {
+        throw new AppError(404, 'User not found')
+      }
+
+      // Regenerate codes using TwoFactorService
+      return await TwoFactorService.regenerateBackupCodes(user)
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error
+      }
+      logger.error(`Error regenerating backup codes for user ${userId}:`, error)
+      throw new AppError(500, 'Failed to regenerate backup codes')
+    }
+  }
+
+  /**
+   * Get two-factor authentication status
+   */
+  static async getTwoFactorStatus(userId: string): Promise<{
+    enabled: boolean
+    hasBackupCodes: boolean
+    backupCodesCount: number
+    secretConfigured: boolean
+  }> {
+    try {
+      // Find user
+      const user = await User.findById(userId)
+
+      if (!user) {
+        throw new AppError(404, 'User not found')
+      }
+
+      return TwoFactorService.getTwoFactorStatus(user)
+    } catch (error) {
+      logger.error(`Error getting 2FA status for user ${userId}:`, error)
+      throw new AppError(500, 'Failed to get two-factor authentication status')
     }
   }
 
@@ -701,19 +733,5 @@ export class AuthService {
     await user.save()
 
     return resetToken
-  }
-
-  /**
-   * Verify two-factor authentication code
-   * @param user User document
-   * @param code Verification code
-   * @returns Whether code is valid
-   * @private
-   */
-  private static verifyTwoFactorCode(user: IUser, code: string): boolean {
-    // In a real implementation, use speakeasy to verify TOTP
-    // For simplicity, we're just checking if code is "123456" or a backup code
-
-    return code === '123456' || user.backupCodes?.includes(code) !== undefined
   }
 }

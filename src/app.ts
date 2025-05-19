@@ -20,6 +20,7 @@ import badgesRoutes from './routes/badges.routes'
 import adminRoutes from './routes/admin.routes'
 import districtsRoutes from './routes/districts.routes'
 import ratingsRoutes from './routes/ratings.routes'
+import { errorTrackingMiddleware, performanceTrackingMiddleware } from './middleware/error-tracking'
 
 dotenv.config()
 
@@ -73,6 +74,8 @@ app.use('/api/v1/districts', districtsRoutes)
 app.use('/api/v1/ratings', ratingsRoutes)
 
 // Error handler
+app.use(performanceTrackingMiddleware(5000)) // Track requests > 5s
+app.use(errorTrackingMiddleware())
 app.use(errorHandler)
 
 export default app
