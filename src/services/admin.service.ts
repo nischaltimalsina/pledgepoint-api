@@ -12,6 +12,8 @@ import { AppError } from '../middleware/error-handler'
 import { logger } from '../utils/logger'
 import { RedisService } from './redis.service'
 import { NotificationService } from './notification.service'
+import { ErrorCategory, ErrorSeverity, ErrorTrackingService } from './error-tracking.service'
+import { ConfigurationService } from './configuration.service'
 
 /**
  * Service handling admin-related business logic
@@ -482,45 +484,6 @@ export class AdminService {
   }
 
   /**
-   * Get system health status
-   */
-  static async getSystemHealth() {
-    try {
-      // Check database connectivity
-      const dbStatus = await this.checkDatabaseHealth()
-
-      // Check Redis connectivity
-      const redisStatus = await this.checkRedisHealth()
-
-      // Get system metrics
-      const metrics = {
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        cpu: process.cpuUsage(),
-      }
-
-      // Check recent errors
-      const recentErrors = await this.getRecentErrors()
-
-      return {
-        status: dbStatus.connected && redisStatus.connected ? 'healthy' : 'unhealthy',
-        services: {
-          database: dbStatus,
-          redis: redisStatus,
-        },
-        metrics,
-        errors: recentErrors,
-      }
-    } catch (error) {
-      logger.error('Error getting system health:', error)
-      return {
-        status: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
-    }
-  }
-
-  /**
    * Get audit logs
    */
   static async getAuditLogs(options: {
@@ -610,59 +573,205 @@ export class AdminService {
     }
   }
 
+  // Replace the existing getConfiguration method (around line 650)
   /**
-   * Get configuration
+   * Get platform configuration
    */
-  static async getConfiguration() {
+  static async getConfiguration(): Promise<any> {
     try {
-      // In a real implementation, this would fetch from a configuration model
-      // For now, return some sample configuration
-      return {
-        platform: {
-          maintenanceMode: false,
-          registrationOpen: true,
-          emailVerificationRequired: true,
-        },
-        gamification: {
-          pointsEnabled: true,
-          badgesEnabled: true,
-          leaderboardEnabled: true,
-        },
-        moderation: {
-          autoApproveRatings: false,
-          autoApproveCampaigns: true,
-          moderationNotifications: true,
-        },
-        notifications: {
-          emailNotifications: true,
-          pushNotifications: false,
-          weeklyDigest: true,
-        },
-      }
+      return await ConfigurationService.getAllConfigs()
     } catch (error) {
       logger.error('Error getting configuration:', error)
       throw error
     }
   }
 
+  // Replace the existing updateConfiguration method (around line 670)
   /**
-   * Update configuration
+   * Update platform configuration
    */
-  static async updateConfiguration(updates: object) {
+  static async updateConfiguration(updates: Record<string, any>, adminId: string): Promise<any> {
     try {
-      // In a real implementation, this would update a configuration model
-      // For now, just return the updates as confirmation
+      const results: Record<string, boolean> = {}
 
-      // Log configuration change
-      await this.logAdminAction('config_updated', null, updates)
+      // Process each configuration update
+      for (const [key, value] of Object.entries(updates)) {
+        // Parse the key to extract category (format: category.key)
+        const keyParts = key.split('.')
+        if (keyParts.length !== 2) {
+          throw new AppError(400, `Invalid configuration key format: ${key}`)
+        }
+
+        const [category, configKey] = keyParts
+        const success = await ConfigurationService.setConfig(
+          key,
+          value,
+          category,
+          adminId,
+          `Updated via admin panel`
+        )
+
+        results[key] = success
+      }
+
+      // Clear configuration cache
+      await ConfigurationService.clearCache()
+
+      // Log configuration changes
+      await this.logAdminAction('config_updated', null, { updates, results, adminId })
+
+      // Get updated configuration
+      const updatedConfig = await ConfigurationService.getAllConfigs()
 
       return {
-        ...(await this.getConfiguration()),
-        ...updates,
+        success: true,
+        updated: Object.keys(updates).length,
+        results,
+        config: updatedConfig,
       }
     } catch (error) {
       logger.error('Error updating configuration:', error)
       throw error
+    }
+  }
+
+  /**
+   * Get error dashboard statistics
+   */
+
+  static async getErrorStatistics(
+    options: {
+      startDate?: Date
+      endDate?: Date
+      category?: ErrorCategory
+      severity?: ErrorSeverity
+      environment?: string
+    } = {}
+  ): Promise<any> {
+    try {
+      return await ErrorTrackingService.getErrorStats(options)
+    } catch (error) {
+      logger.error('Error getting error statistics:', error)
+      throw error
+    }
+  }
+
+  // Add this new method after getErrorStatistics
+  /**
+   * Get recent errors for admin dashboard
+   */
+  static async getRecentErrors(
+    options: {
+      limit?: number
+      severity?: string
+      category?: string
+      resolved?: boolean
+    } = {}
+  ): Promise<any> {
+    try {
+      const { limit = 50, severity, category, resolved } = options
+
+      const filters: any = {}
+      if (severity) filters.severity = severity
+      if (category) filters.category = category
+      if (resolved !== undefined) filters.resolved = resolved
+
+      return await ErrorTrackingService.getRecentErrors(limit, filters)
+    } catch (error) {
+      logger.error('Error getting recent errors:', error)
+      throw error
+    }
+  }
+
+  // Add this new method after getRecentErrors
+  /**
+   * Resolve an error
+   */
+  static async resolveError(
+    errorId: string,
+    resolvedBy: string,
+    resolution: string
+  ): Promise<void> {
+    try {
+      await ErrorTrackingService.resolveError(errorId, resolvedBy, resolution)
+
+      // Log admin action
+      await this.logAdminAction('error_resolved', errorId, { resolution, resolvedBy })
+    } catch (error) {
+      logger.error(`Error resolving error ${errorId}:`, error)
+      throw error
+    }
+  }
+
+  // Add this new method after resolveError
+  /**
+   * Clean up old resolved errors
+   */
+  static async cleanupOldErrors(daysToKeep: number = 90): Promise<{ cleaned: number }> {
+    try {
+      await ErrorTrackingService.cleanupOldErrors(daysToKeep)
+
+      // Log admin action
+      await this.logAdminAction('errors_cleaned_up', null, { daysToKeep })
+
+      return { cleaned: daysToKeep }
+    } catch (error) {
+      logger.error('Error cleaning up old errors:', error)
+      throw error
+    }
+  }
+
+  // Replace the existing getSystemHealth method (around line 600)
+  /**
+   * Get system health status
+   */
+  static async getSystemHealth(): Promise<any> {
+    try {
+      // Check database connectivity
+      const dbStatus = await this.checkDatabaseHealth()
+
+      // Check Redis connectivity
+      const redisStatus = await this.checkRedisHealth()
+
+      // Get system metrics
+      const metrics = {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        cpu: process.cpuUsage(),
+      }
+
+      // Get recent error statistics
+      const errorStats = await ErrorTrackingService.getErrorStats({
+        startDate: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+      })
+
+      // Get critical errors count
+      const criticalErrors = await ErrorTrackingService.getRecentErrors(10, {
+        severity: 'critical' as ErrorSeverity,
+        resolved: false,
+      })
+
+      return {
+        status: dbStatus.connected && redisStatus.connected ? 'healthy' : 'unhealthy',
+        services: {
+          database: dbStatus,
+          redis: redisStatus,
+        },
+        metrics,
+        errors: {
+          total24h: errorStats.total,
+          byCategory: errorStats.byCategory,
+          bySeverity: errorStats.bySeverity,
+          criticalCount: criticalErrors.length,
+          recentTrends: errorStats.recentTrends,
+        },
+      }
+    } catch (error) {
+      logger.error('Error getting system health:', error)
+      return {
+        status: 'unhealthy',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
     }
   }
 
@@ -1168,12 +1277,6 @@ export class AdminService {
         error: error instanceof Error ? error.message : 'Unknown error',
       }
     }
-  }
-
-  private static async getRecentErrors() {
-    // In a real implementation, this would fetch from error tracking service
-    // For now, return empty array
-    return []
   }
 
   private static async generateUserReport(startDate?: Date, endDate?: Date, district?: string) {

@@ -266,7 +266,7 @@ export class LearningService {
           )
 
           // Update progress with points earned
-          progress.pointsEarned = pointsEarned
+          progress.pointsEarned = pointsEarned.pointsAwarded
 
           // Create completion activity
           const activity = new Activity({
@@ -405,7 +405,7 @@ export class LearningService {
       // Update quiz results
       progress.quizResults = quizResults
 
-      let pointsEarned = 0
+      let pointsEarned = { pointsAwarded: 0 }
       let badgesEarned: string[] = []
 
       if (passed) {
@@ -429,7 +429,7 @@ export class LearningService {
         })
 
         // Update progress with points earned
-        progress.pointsEarned = pointsEarned
+        progress.pointsEarned = pointsEarned.pointsAwarded
 
         // Create completion activity
         const activity = new Activity({
@@ -496,7 +496,7 @@ export class LearningService {
         correctAnswers,
         totalQuestions: quiz.questions.length,
         quizResults,
-        pointsEarned,
+        pointsEarned: pointsEarned.pointsAwarded,
         badgesEarned,
       }
     } catch (error) {

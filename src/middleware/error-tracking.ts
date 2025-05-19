@@ -251,7 +251,11 @@ export const performanceTrackingMiddleware = (slowThreshold: number = 5000) => {
 
     // Override res.end to capture response time
     const originalEnd = res.end
-    res.end = function (...args: any[]): Response<any, Record<string, any>> {
+    res.end = function (
+      chunk?: any,
+      encoding?: BufferEncoding | (() => void),
+      cb?: () => void
+    ): Response<any, Record<string, any>> {
       const duration = Date.now() - startTime
 
       // Track slow requests as warnings
@@ -280,8 +284,8 @@ export const performanceTrackingMiddleware = (slowThreshold: number = 5000) => {
         })
       }
 
-      // Call original end method and return its result
-      return originalEnd(this, ...args)
+      // Call original end method with proper arguments
+      return originalEnd.call(this, chunk, encoding as BufferEncoding, cb)
     }
 
     next()

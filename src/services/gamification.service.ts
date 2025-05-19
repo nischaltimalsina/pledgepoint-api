@@ -8,101 +8,6 @@ import mongoose, { Types } from 'mongoose'
  */
 export class GamificationService {
   /**
-   * Award impact points for user actions
-   * @param userId User ID to award points to
-   * @param actionType Type of action performed
-   * @param detailsOrAmount Action details or point amount
-   * @returns Number of points awarded
-   */
-  static async awardPoints(
-    userId: string,
-    actionType: string,
-    detailsOrAmount: any
-  ): Promise<number> {
-    try {
-      // Determine points to award
-      let pointsToAward = 0
-
-      if (typeof detailsOrAmount === 'number') {
-        // If amount is directly provided
-        pointsToAward = detailsOrAmount
-      } else {
-        // Calculate based on action type
-        switch (actionType) {
-          case 'RATE_OFFICIAL':
-            pointsToAward = 10
-            break
-          case 'SUBMIT_EVIDENCE':
-            pointsToAward = 20
-            break
-          case 'VERIFY_EVIDENCE':
-            pointsToAward = 30
-            break
-          case 'CREATE_CAMPAIGN':
-            pointsToAward = 50
-            break
-          case 'SUPPORT_CAMPAIGN':
-            pointsToAward = 10
-            break
-          case 'COMPLETE_MODULE':
-            pointsToAward = detailsOrAmount?.pointsReward || 20
-            break
-          case 'UPVOTE_RECEIVED':
-            pointsToAward = 2
-            break
-          case 'COMMENT_POSTED':
-            pointsToAward = 5
-            break
-          case 'DISCUSSION_POSTED':
-            pointsToAward = 5
-            break
-          default:
-            pointsToAward = 5 // Default points for unspecified actions
-        }
-      }
-
-      // Apply any bonuses or multipliers
-      pointsToAward = await this.applyPointMultipliers(userId, pointsToAward, actionType)
-
-      // Update user's points
-      const user = await User.findById(userId)
-
-      if (!user) {
-        logger.error(`User not found for ID: ${userId}`)
-        return 0
-      }
-
-      // Add points
-      const previousPoints = user.impactPoints
-      user.impactPoints += pointsToAward
-
-      // Get previous level
-      const previousLevel = user.level
-
-      // Check if user level should be updated
-      const newLevel = this.calculateUserLevel(user.impactPoints)
-      if (newLevel !== previousLevel) {
-        user.level = newLevel
-
-        // Send level-up notification with unlocked features
-        const unlockedFeatures = this.getUnlockedFeaturesByLevel(newLevel)
-        await NotificationService.sendLevelUpNotification(userId, newLevel, unlockedFeatures)
-      }
-
-      // Save user
-      await user.save()
-
-      // Log the points award
-      logger.info(`Awarded ${pointsToAward} points to user ${userId} for ${actionType}`)
-
-      return pointsToAward
-    } catch (error) {
-      logger.error(`Error awarding points to user ${userId}:`, error)
-      return 0
-    }
-  }
-
-  /**
    * Apply any point multipliers based on user status
    * @param userId User ID
    * @param basePoints Base points to multiply
@@ -602,10 +507,126 @@ export class GamificationService {
   }
 
   /**
-   * Get user's streak information
+   * Update user's streak and calculate longest streak
    * @param userId User ID
    * @param streakType Type of streak ('civic' or 'learning')
-   * @returns Streak information
+   * @param activityDate Date of the activity (defaults to now)
+   * @returns Updated streak information
+   */
+  static async updateUserStreak(
+    userId: string,
+    streakType: 'civic' | 'learning',
+    activityDate: Date = new Date()
+  ): Promise<{
+    currentStreak: number
+    longestStreak: number
+    isNewRecord: boolean
+  }> {
+    try {
+      const user = await User.findById(userId)
+      if (!user) {
+        throw new Error(`User not found: ${userId}`)
+      }
+
+      // Initialize streaks if they don't exist
+      if (!user.streaks) {
+        user.streaks = {
+          civic: { current: 0, longest: 0, lastActivity: new Date() },
+          learning: { current: 0, longest: 0, lastActivity: new Date() },
+        }
+      }
+
+      const streak = user.streaks[streakType]
+      const timeUnit = streakType === 'civic' ? 'week' : 'day'
+
+      // Calculate if this activity continues the streak
+      const { shouldContinue, daysSinceLastActivity } = this.shouldContinueStreak(
+        streak.lastActivity,
+        activityDate,
+        timeUnit
+      )
+
+      let isNewRecord = false
+
+      if (shouldContinue) {
+        // Continue existing streak
+        streak.current += 1
+      } else if (daysSinceLastActivity === 0) {
+        // Same day/week activity - don't change streak
+        // Just update last activity
+      } else {
+        // Streak broken, start new one
+        streak.current = 1
+      }
+
+      // Update last activity
+      streak.lastActivity = activityDate
+
+      // Check if we have a new longest streak record
+      if (streak.current > streak.longest) {
+        streak.longest = streak.current
+        isNewRecord = true
+      }
+
+      // Save user with updated streaks
+      await user.save()
+
+      logger.info(
+        `Updated ${streakType} streak for user ${userId}: current=${streak.current}, longest=${streak.longest}`
+      )
+
+      return {
+        currentStreak: streak.current,
+        longestStreak: streak.longest,
+        isNewRecord,
+      }
+    } catch (error) {
+      logger.error(`Error updating streak for user ${userId}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Determine if activity should continue the current streak
+   * @param lastActivity Last activity date
+   * @param activityDate Current activity date
+   * @param timeUnit 'day' or 'week'
+   * @returns Whether to continue streak and days since last activity
+   */
+  private static shouldContinueStreak(
+    lastActivity: Date | null,
+    activityDate: Date,
+    timeUnit: 'day' | 'week'
+  ): { shouldContinue: boolean; daysSinceLastActivity: number } {
+    if (!lastActivity) {
+      return { shouldContinue: false, daysSinceLastActivity: Infinity }
+    }
+
+    const daysDiff = Math.floor(
+      (activityDate.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)
+    )
+
+    if (timeUnit === 'day') {
+      // For daily streaks: continue if activity is on consecutive days (1 day difference)
+      return {
+        shouldContinue: daysDiff === 1,
+        daysSinceLastActivity: daysDiff,
+      }
+    } else {
+      // For weekly streaks: continue if activity is in consecutive weeks (5-9 days difference typically)
+      const shouldContinue = daysDiff >= 5 && daysDiff <= 9
+      return {
+        shouldContinue,
+        daysSinceLastActivity: daysDiff,
+      }
+    }
+  }
+
+  /**
+   * Get user's streak information (updated implementation)
+   * @param userId User ID
+   * @param streakType Type of streak ('civic' or 'learning')
+   * @returns Detailed streak information including multiplier
    */
   static async getUserStreak(
     userId: string,
@@ -615,170 +636,72 @@ export class GamificationService {
     longestStreak: number
     lastActivity: Date | null
     multiplier: number
+    daysUntilBreak: number
+    isAtRisk: boolean
   }> {
     try {
-      // Default return if no streak
-      const defaultResult = {
-        currentStreak: 0,
-        longestStreak: 0,
-        lastActivity: null,
-        multiplier: 1.0,
-      }
-
-      // Get user
       const user = await User.findById(userId)
-      if (!user) return defaultResult
-
-      // Determine time unit and activity types based on streak type
-      let timeUnit: 'day' | 'week' = 'day'
-      let activityTypes: string[] = []
-
-      if (streakType === 'civic') {
-        timeUnit = 'week'
-        activityTypes = [
-          'rating_created',
-          'evidence_submitted',
-          'campaign_created',
-          'campaign_supported',
-          'discussion_posted',
-          'comment_posted',
-        ]
-      } else {
-        // learning streak
-        timeUnit = 'day'
-        activityTypes = ['module_started', 'module_completed', 'quiz_completed']
-      }
-
-      // Get activity history grouped by time unit
-      const activities = await Activity.find({
-        userId: new Types.ObjectId(userId),
-        type: { $in: activityTypes },
-      }).sort({ createdAt: -1 })
-
-      if (!activities.length) return defaultResult
-
-      // Get the most recent activity date
-      const lastActivity = activities[0].createdAt
-
-      // Group activities by time unit
-      const activityTimeUnits = new Set<string>()
-
-      activities.forEach((activity) => {
-        let timeUnitStr: string
-
-        if (timeUnit === 'day') {
-          timeUnitStr = activity.createdAt.toISOString().split('T')[0] // YYYY-MM-DD
-        } else {
-          // week
-          // Get week number (ISO week starts on Monday)
-          const date = activity.createdAt
-          const dayOfWeek = date.getDay() || 7 // Convert Sunday from 0 to 7
-          const mondayDate = new Date(date)
-          mondayDate.setDate(date.getDate() - dayOfWeek + 1)
-          timeUnitStr = mondayDate.toISOString().split('T')[0] // Week start date
-        }
-
-        activityTimeUnits.add(timeUnitStr)
-      })
-
-      // Convert to array and sort chronologically
-      const sortedTimeUnits = Array.from(activityTimeUnits).sort()
-
-      // Calculate current streak
-      let currentStreak = 0
-      let checkDate: Date
-
-      if (timeUnit === 'day') {
-        checkDate = new Date()
-        // If there was activity today, start checking from yesterday
-        if (sortedTimeUnits.includes(checkDate.toISOString().split('T')[0])) {
-          checkDate.setDate(checkDate.getDate() - 1)
-          currentStreak = 1
-        }
-      } else {
-        // week
-        checkDate = new Date()
-        const dayOfWeek = checkDate.getDay() || 7
-        const mondayDate = new Date(checkDate)
-        mondayDate.setDate(checkDate.getDate() - dayOfWeek + 1)
-        const currentWeek = mondayDate.toISOString().split('T')[0]
-
-        // If there was activity this week, start checking from last week
-        if (sortedTimeUnits.includes(currentWeek)) {
-          checkDate.setDate(checkDate.getDate() - 7)
-          currentStreak = 1
+      if (!user) {
+        return {
+          currentStreak: 0,
+          longestStreak: 0,
+          lastActivity: null,
+          multiplier: 1.0,
+          daysUntilBreak: 0,
+          isAtRisk: false,
         }
       }
 
-      // Check consecutive time units
-      for (let i = sortedTimeUnits.length - 1; i >= 0; i--) {
-        const timeUnitDate = new Date(sortedTimeUnits[i])
-
-        // Check if this is the expected next date
-        if (timeUnit === 'day') {
-          // For daily streak, dates should be consecutive
-          const expectedDate = new Date(checkDate)
-          expectedDate.setDate(expectedDate.getDate() - 1)
-
-          if (
-            timeUnitDate.toISOString().split('T')[0] === expectedDate.toISOString().split('T')[0]
-          ) {
-            currentStreak++
-            checkDate = expectedDate
-          } else {
-            break
-          }
-        } else {
-          // week
-          // For weekly streak, weeks should be consecutive
-          const expectedDate = new Date(checkDate)
-          expectedDate.setDate(expectedDate.getDate() - 7)
-
-          const expectedDayOfWeek = expectedDate.getDay() || 7
-          const expectedMonday = new Date(expectedDate)
-          expectedMonday.setDate(expectedDate.getDate() - expectedDayOfWeek + 1)
-
-          if (
-            timeUnitDate.toISOString().split('T')[0] === expectedMonday.toISOString().split('T')[0]
-          ) {
-            currentStreak++
-            checkDate = expectedDate
-          } else {
-            break
-          }
+      // Initialize streaks if they don't exist
+      if (!user.streaks || !user.streaks[streakType]) {
+        return {
+          currentStreak: 0,
+          longestStreak: 0,
+          lastActivity: null,
+          multiplier: 1.0,
+          daysUntilBreak: 0,
+          isAtRisk: false,
         }
       }
 
-      // Calculate longest streak (simplified - in real implementation would be stored in user profile)
-      const longestStreak = Math.max(currentStreak, 0) // Replace with actual longest streak
+      const streak = user.streaks[streakType]
+      const timeUnit = streakType === 'civic' ? 'week' : 'day'
 
-      // Calculate multiplier based on streak
+      // Calculate multiplier based on current streak
       let multiplier = 1.0
-
       if (streakType === 'civic') {
-        if (currentStreak >= 4) {
-          // 4+ weeks
-          multiplier = 1.5
-        } else if (currentStreak >= 2) {
-          // 2-3 weeks
-          multiplier = 1.2
-        }
+        if (streak.current >= 4) multiplier = 1.5
+        else if (streak.current >= 2) multiplier = 1.2
       } else {
-        // learning
-        if (currentStreak >= 7) {
-          // 7+ days
-          multiplier = 1.5
-        } else if (currentStreak >= 3) {
-          // 3-6 days
-          multiplier = 1.2
+        if (streak.current >= 7) multiplier = 1.5
+        else if (streak.current >= 3) multiplier = 1.2
+      }
+
+      // Calculate days until streak breaks and risk assessment
+      let daysUntilBreak = 0
+      let isAtRisk = false
+
+      if (streak.lastActivity) {
+        const daysSinceLastActivity = Math.floor(
+          (Date.now() - streak.lastActivity.getTime()) / (1000 * 60 * 60 * 24)
+        )
+
+        if (timeUnit === 'day') {
+          daysUntilBreak = Math.max(0, 2 - daysSinceLastActivity) // Break after 2 days
+          isAtRisk = daysSinceLastActivity >= 1
+        } else {
+          daysUntilBreak = Math.max(0, 10 - daysSinceLastActivity) // Break after 10 days
+          isAtRisk = daysSinceLastActivity >= 7
         }
       }
 
       return {
-        currentStreak,
-        longestStreak,
-        lastActivity,
+        currentStreak: streak.current,
+        longestStreak: streak.longest,
+        lastActivity: streak.lastActivity,
         multiplier,
+        daysUntilBreak,
+        isAtRisk,
       }
     } catch (error) {
       logger.error(`Error getting ${streakType} streak for user ${userId}:`, error)
@@ -787,16 +710,130 @@ export class GamificationService {
         longestStreak: 0,
         lastActivity: null,
         multiplier: 1.0,
+        daysUntilBreak: 0,
+        isAtRisk: false,
       }
     }
   }
 
   /**
-   * Get leaderboard for users
-   * @param category Leaderboard category (points, badges, specific activity)
-   * @param filter Additional filters (e.g., district, timeframe)
+   * Award points with streak multiplier and update streaks
+   * @param userId User ID to award points to
+   * @param actionType Type of action performed
+   * @param detailsOrAmount Action details or point amount
+   * @returns Points awarded and streak information
+   */
+  static async awardPoints(
+    userId: string,
+    actionType: string,
+    detailsOrAmount: any
+  ): Promise<{
+    pointsAwarded: number
+    streakInfo?: {
+      type: 'civic' | 'learning'
+      currentStreak: number
+      longestStreak: number
+      isNewRecord: boolean
+      multiplier: number
+    }
+  }> {
+    try {
+      // Get base points (existing logic)
+      let basePoints = 0
+      if (typeof detailsOrAmount === 'number') {
+        basePoints = detailsOrAmount
+      } else {
+        // Calculate based on action type (existing switch logic)
+        switch (actionType) {
+          case 'RATE_OFFICIAL':
+            basePoints = 10
+            break
+          case 'SUBMIT_EVIDENCE':
+            basePoints = 20
+            break
+          // ... other cases
+          default:
+            basePoints = 5
+        }
+      }
+
+      // Determine streak type based on action
+      let streakType: 'civic' | 'learning' | null = null
+      const civicActions = [
+        'RATE_OFFICIAL',
+        'SUBMIT_EVIDENCE',
+        'CREATE_CAMPAIGN',
+        'SUPPORT_CAMPAIGN',
+        'DISCUSSION_POSTED',
+        'COMMENT_POSTED',
+      ]
+      const learningActions = ['COMPLETE_MODULE', 'QUIZ_COMPLETED']
+
+      if (civicActions.includes(actionType)) {
+        streakType = 'civic'
+      } else if (learningActions.includes(actionType)) {
+        streakType = 'learning'
+      }
+
+      let streakInfo: any = undefined
+
+      // Update streak and apply multiplier if applicable
+      if (streakType) {
+        const streakUpdate = await this.updateUserStreak(userId, streakType)
+        const currentStreak = await this.getUserStreak(userId, streakType)
+
+        // Apply streak multiplier
+        basePoints = Math.round(basePoints * currentStreak.multiplier)
+
+        streakInfo = {
+          type: streakType,
+          currentStreak: streakUpdate.currentStreak,
+          longestStreak: streakUpdate.longestStreak,
+          isNewRecord: streakUpdate.isNewRecord,
+          multiplier: currentStreak.multiplier,
+        }
+      }
+
+      // Update user's points (existing logic)
+      const user = await User.findById(userId)
+      if (!user) {
+        logger.error(`User not found for ID: ${userId}`)
+        return { pointsAwarded: 0 }
+      }
+
+      user.impactPoints += basePoints
+
+      // Check level update (existing logic)
+      const previousLevel = user.level
+      const newLevel = this.calculateUserLevel(user.impactPoints)
+      if (newLevel !== previousLevel) {
+        user.level = newLevel
+        const unlockedFeatures = this.getUnlockedFeaturesByLevel(newLevel)
+        await NotificationService.sendLevelUpNotification(userId, newLevel, unlockedFeatures)
+      }
+
+      await user.save()
+
+      logger.info(
+        `Awarded ${basePoints} points to user ${userId} for ${actionType}${streakInfo ? ` (${streakInfo.multiplier}x multiplier)` : ''}`
+      )
+
+      return {
+        pointsAwarded: basePoints,
+        streakInfo,
+      }
+    } catch (error) {
+      logger.error(`Error awarding points to user ${userId}:`, error)
+      return { pointsAwarded: 0 }
+    }
+  }
+
+  /**
+   * Get leaderboard including streak information
+   * @param category Leaderboard category
+   * @param filter Additional filters
    * @param limit Number of users to return
-   * @returns Leaderboard entries
+   * @returns Leaderboard entries with streak data
    */
   static async getLeaderboard(
     category: string = 'points',
@@ -807,18 +844,22 @@ export class GamificationService {
       let query: any = { active: true }
       let sort: any = {}
 
-      // Apply filters
       if (filter.district) {
         query.district = filter.district
       }
 
-      // Determine sort field based on category
       switch (category) {
         case 'points':
           sort = { impactPoints: -1 }
           break
+        case 'civic_streak':
+          sort = { 'streaks.civic.current': -1 }
+          break
+        case 'learning_streak':
+          sort = { 'streaks.learning.current': -1 }
+          break
         case 'badges':
-          // Handle badge count sorting through aggregation
+          // Existing badge logic
           const badgeLeaderboard = await User.aggregate([
             { $match: query },
             {
@@ -829,6 +870,7 @@ export class GamificationService {
                 level: 1,
                 district: 1,
                 badgeCount: { $size: { $ifNull: ['$badges', []] } },
+                streaks: 1,
               },
             },
             { $sort: { badgeCount: -1 } },
@@ -843,26 +885,32 @@ export class GamificationService {
             level: user.level,
             badgeCount: user.badgeCount,
             district: user.district || 'Unknown',
+            streaks: user.streaks || {
+              civic: { current: 0, longest: 0 },
+              learning: { current: 0, longest: 0 },
+            },
           }))
         default:
           sort = { impactPoints: -1 }
       }
 
-      // Get users for leaderboard
       const users = await User.find(query)
-        .select('firstName lastName impactPoints level badges district')
+        .select('firstName lastName impactPoints level badges district streaks')
         .sort(sort)
         .limit(limit)
 
-      // Format leaderboard entries
       return users.map((user, index) => ({
         rank: index + 1,
         userId: user._id,
-        name: `${user.firstName} ${user.lastName.charAt(0)}.`, // Privacy: only first name and last initial
+        name: `${user.firstName} ${user.lastName.charAt(0)}.`,
         points: user.impactPoints,
         level: user.level,
         badgeCount: user.badges ? user.badges.length : 0,
         district: user.district || 'Unknown',
+        streaks: user.streaks || {
+          civic: { current: 0, longest: 0 },
+          learning: { current: 0, longest: 0 },
+        },
       }))
     } catch (error) {
       logger.error('Error getting leaderboard:', error)

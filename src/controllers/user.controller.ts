@@ -2,11 +2,11 @@ import { Request, Response, NextFunction } from 'express'
 import mongoose from 'mongoose'
 import { User, IUser } from '../models/user.model'
 import { AppError } from '../middleware/error-handler'
-import { logger } from '../utils/logger'
 import { PasswordUtils } from '../utils/password'
 import { GamificationService } from '../services/gamification.service'
 import { PaginationUtils } from '../utils/pagination'
-import * as Multer from 'multer'
+import { FileUploadService } from '../services/file.service'
+import { AuthenticatedRequest } from '../types/user.types'
 
 // User controller class
 export class UserController {
@@ -168,34 +168,230 @@ export class UserController {
 
   /**
    * Upload profile picture
-   * This would typically use a file upload service or middleware
    */
-  static async uploadProfilePicture(
-    req: Request & { file: Express.Multer.File },
+  static uploadProfilePicture = (req: Request, res: Response, next: NextFunction): void => {
+    // Use the profile picture upload middleware
+    FileUploadService.profilePictureUpload(req, res, async (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(new AppError(400, 'File too large. Maximum size is 5MB.'))
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return next(new AppError(400, 'Only one file allowed'))
+        }
+        return next(new AppError(400, err.message))
+      }
+
+      try {
+        const authenticatedReq = req as AuthenticatedRequest
+        const userId = authenticatedReq.user._id
+
+        if (!req.file) {
+          throw new AppError(400, 'No file uploaded')
+        }
+
+        // Process the uploaded file
+        const fileInfo = FileUploadService.processUploadedFile(req.file)
+
+        // Get current user to check for existing profile picture
+        const currentUser = await User.findById(userId)
+        if (!currentUser) {
+          // Clean up uploaded file if user not found
+          FileUploadService.deleteFile(req.file.path)
+          throw new AppError(404, 'User not found')
+        }
+
+        // Delete old profile picture if it exists
+        if (currentUser.profilePicture) {
+          const oldFilePath = currentUser.profilePicture.replace('/uploads/', '')
+          await FileUploadService.deleteFile(`uploads/${oldFilePath}`)
+        }
+
+        // Update user with new profile picture URL
+        const user = await User.findByIdAndUpdate(
+          userId,
+          { profilePicture: fileInfo.url },
+          { new: true }
+        )
+
+        res.status(200).json({
+          status: 'success',
+          message: 'Profile picture uploaded successfully',
+          data: {
+            profilePicture: user?.profilePicture,
+            fileInfo: {
+              originalName: fileInfo.originalName,
+              size: fileInfo.size,
+              url: fileInfo.url,
+            },
+          },
+        })
+      } catch (error) {
+        // Clean up uploaded file on error
+        if (req.file) {
+          FileUploadService.deleteFile(req.file.path)
+        }
+        next(error)
+      }
+    })
+  }
+
+  /**
+   * Delete profile picture
+   */
+  static async deleteProfilePicture(
+    req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> {
     try {
-      const userId = (req as any).user._id
+      const authenticatedReq = req as AuthenticatedRequest
+      const userId = authenticatedReq.user._id
 
-      // In a real implementation, req.file would come from multer middleware
-      if (!req.file) {
-        throw new AppError(400, 'No file uploaded')
-      }
-
-      // Store the file path in user profile
-      const profilePicture = req.file.path
-
-      const user = await User.findByIdAndUpdate(userId, { profilePicture }, { new: true })
+      const user = await User.findById(userId)
 
       if (!user) {
         throw new AppError(404, 'User not found')
       }
 
+      if (!user.profilePicture) {
+        throw new AppError(400, 'No profile picture to delete')
+      }
+
+      // Delete the file from storage
+      const filePath = user.profilePicture.replace('/uploads/', '')
+      await FileUploadService.deleteFile(`uploads/${filePath}`)
+
+      // Remove profile picture from user
+      user.profilePicture = undefined
+      await user.save()
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Profile picture deleted successfully',
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Get profile picture info
+   */
+  static async getProfilePictureInfo(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<Response | void> {
+    try {
+      const authenticatedReq = req as AuthenticatedRequest
+      const userId = authenticatedReq.user._id
+
+      const user = await User.findById(userId).select('profilePicture')
+
+      if (!user) {
+        throw new AppError(404, 'User not found')
+      }
+
+      if (!user.profilePicture) {
+        return res.status(200).json({
+          status: 'success',
+          data: {
+            hasProfilePicture: false,
+            profilePicture: null,
+          },
+        })
+      }
+
+      // Get file info
+      const filePath = user.profilePicture.replace('/uploads/', '')
+      const fileInfo = FileUploadService.getFileInfo(`uploads/${filePath}`)
+
       res.status(200).json({
         status: 'success',
         data: {
+          hasProfilePicture: true,
           profilePicture: user.profilePicture,
+          fileInfo: {
+            exists: fileInfo.exists,
+            size: fileInfo.size,
+            created: fileInfo.created,
+            modified: fileInfo.modified,
+          },
+        },
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  /**
+   * Upload multiple documents/files
+   */
+  static uploadDocuments = (req: Request, res: Response, next: NextFunction): void => {
+    // Use the general document upload middleware
+    FileUploadService.documentUpload(req, res, async (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(new AppError(400, 'File too large'))
+        }
+        return next(new AppError(400, err.message))
+      }
+
+      try {
+        const authenticatedReq = req as AuthenticatedRequest
+        const userId = authenticatedReq.user._id
+
+        if (!req.file) {
+          throw new AppError(400, 'No file uploaded')
+        }
+
+        // Process the uploaded file
+        const fileInfo = FileUploadService.processUploadedFile(req.file)
+
+        // You could store file metadata in a separate collection
+        // For now, just return the file info
+
+        res.status(200).json({
+          status: 'success',
+          message: 'Document uploaded successfully',
+          data: {
+            fileInfo: {
+              originalName: fileInfo.originalName,
+              filename: fileInfo.filename,
+              size: fileInfo.size,
+              mimetype: fileInfo.mimetype,
+              url: fileInfo.url,
+            },
+          },
+        })
+      } catch (error) {
+        // Clean up uploaded file on error
+        if (req.file) {
+          FileUploadService.deleteFile(req.file.path)
+        }
+        next(error)
+      }
+    })
+  }
+
+  /**
+   * Get user's uploaded files (if you have a files collection)
+   */
+  static async getUserFiles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authenticatedReq = req as AuthenticatedRequest
+      const userId = authenticatedReq.user._id
+
+      // This would require a separate File model to track user uploads
+      // For now, we'll just return a placeholder response
+
+      res.status(200).json({
+        status: 'success',
+        message: 'File listing feature requires File model implementation',
+        data: {
+          files: [],
+          total: 0,
         },
       })
     } catch (error) {
@@ -215,6 +411,12 @@ export class UserController {
 
       if (!user) {
         throw new AppError(404, 'User not found')
+      }
+
+      // Clean up user's profile picture if exists
+      if (user.profilePicture) {
+        const filePath = user.profilePicture.replace('/uploads/', '')
+        await FileUploadService.deleteFile(`uploads/${filePath}`)
       }
 
       res.status(200).json({
@@ -354,11 +556,20 @@ export class UserController {
         throw new AppError(400, 'Invalid user ID')
       }
 
-      const user = await User.findByIdAndDelete(id)
+      const user = await User.findById(id)
 
       if (!user) {
         throw new AppError(404, 'User not found')
       }
+
+      // Clean up user's files before deletion
+      if (user.profilePicture) {
+        const filePath = user.profilePicture.replace('/uploads/', '')
+        await FileUploadService.deleteFile(`uploads/${filePath}`)
+      }
+
+      // Hard delete for admin action
+      await User.findByIdAndDelete(id)
 
       res.status(200).json({
         status: 'success',

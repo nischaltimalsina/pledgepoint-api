@@ -34,6 +34,20 @@ export interface IUser extends Document {
   profilePicture?: string
   bio?: string
 
+  // Streak tracking fields
+  streaks: {
+    civic: {
+      current: number
+      longest: number
+      lastActivity: Date
+    }
+    learning: {
+      current: number
+      longest: number
+      lastActivity: Date
+    }
+  }
+
   // Methods
   comparePassword(candidatePassword: string): Promise<boolean>
   generatePasswordResetToken(): Promise<string>
@@ -130,7 +144,21 @@ const userSchema = new Schema<IUser>(
       type: String,
       maxlength: [500, 'Bio must be less than 500 characters'],
     },
+
+    streaks: {
+      civic: {
+        current: { type: Number, default: 0 },
+        longest: { type: Number, default: 0 },
+        lastActivity: { type: Date, default: null },
+      },
+      learning: {
+        current: { type: Number, default: 0 },
+        longest: { type: Number, default: 0 },
+        lastActivity: { type: Date, default: null },
+      },
+    },
   },
+
   {
     timestamps: true,
     toJSON: {

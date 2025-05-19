@@ -31,7 +31,17 @@ export interface IActivity extends Document {
   details: any
   relatedId?: Types.ObjectId
   relatedType?: string
-  pointsEarned: number
+  pointsEarned: {
+    pointsAwarded: number
+    streakInfo?: {
+      type: 'civic' | 'learning'
+      currentStreak: number
+      longestStreak: number
+      isNewRecord: boolean
+      multiplier: number
+    }
+  }
+
   badgesEarned: string[]
   ip?: string
   userAgent?: string
@@ -85,8 +95,33 @@ const activitySchema = new Schema<IActivity>(
       index: true,
     },
     pointsEarned: {
-      type: Number,
-      default: 0,
+      pointsAwarded: {
+        type: Number,
+        required: [true, 'Points awarded is required'],
+        min: [0, 'Points awarded cannot be negative'],
+      },
+      streakInfo: {
+        type: {
+          type: String,
+          enum: ['civic', 'learning'],
+        },
+        currentStreak: {
+          type: Number,
+          default: 0,
+        },
+        longestStreak: {
+          type: Number,
+          default: 0,
+        },
+        isNewRecord: {
+          type: Boolean,
+          default: false,
+        },
+        multiplier: {
+          type: Number,
+          default: 1,
+        },
+      },
     },
     badgesEarned: {
       type: [String],

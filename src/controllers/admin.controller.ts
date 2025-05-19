@@ -281,10 +281,14 @@ export class AdminController {
    * @route PATCH /api/admin/config
    */
   static async updateConfiguration(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const authenticatedReq = req as AuthenticatedRequest
     try {
       const configUpdates = req.body
 
-      const config = await AdminService.updateConfiguration(configUpdates)
+      const config = await AdminService.updateConfiguration(
+        configUpdates,
+        authenticatedReq.user._id.toString()
+      )
 
       res.status(200).json({
         message: 'Configuration updated successfully',
