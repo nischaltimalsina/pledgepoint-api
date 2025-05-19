@@ -4,6 +4,7 @@ import mongoose, { Document, Schema } from 'mongoose'
  * Interface for District document
  */
 export interface IDistrict extends Document {
+  _id: mongoose.Types.ObjectId
   name: string
   code: string
   type: 'federal' | 'provincial' | 'municipal' | 'other'

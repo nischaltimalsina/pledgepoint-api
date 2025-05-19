@@ -1,4 +1,3 @@
-// src/app.ts
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
@@ -19,6 +18,8 @@ import usersRoutes from './routes/users.routes'
 import learningRoutes from './routes/learning.routes'
 import badgesRoutes from './routes/badges.routes'
 import adminRoutes from './routes/admin.routes'
+import districtsRoutes from './routes/districts.routes'
+import ratingsRoutes from './routes/ratings.routes'
 
 dotenv.config()
 
@@ -68,6 +69,8 @@ app.use('/api/v1/users', usersRoutes)
 app.use('/api/v1/learning', learningRoutes)
 app.use('/api/v1/badges', badgesRoutes)
 app.use('/api/v1/admin', adminRoutes)
+app.use('/api/v1/districts', districtsRoutes)
+app.use('/api/v1/ratings', ratingsRoutes)
 
 // Error handler
 app.use(errorHandler)

@@ -31,6 +31,7 @@ export interface IBadgeCriteria {
  * Interface for Badge document
  */
 export interface IBadge extends Document {
+  _id: mongoose.Types.ObjectId
   code: string
   name: string
   description: string
