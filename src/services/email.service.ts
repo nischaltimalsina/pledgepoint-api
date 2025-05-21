@@ -10,15 +10,39 @@ import { IUser } from '../models/user.model'
 export class EmailService {
   private static transporter: nodemailer.Transporter
   private static initialized = false
+  private static initializationInProgress = false
+  private static initializationError: Error | null = null
+  private static retryCount = 0
+  private static readonly MAX_RETRIES = 3
+  private static readonly RETRY_DELAY = 5000 // 5 seconds
 
   /**
-   * Initialize email service
+   * Initialize email service with retry mechanism
    */
   private static async initialize(): Promise<void> {
+    // If already initialized successfully, return
     if (this.initialized) return
 
+    // If initialization is in progress, wait for it
+    if (this.initializationInProgress) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (this.initialized) return
+      if (this.initializationError) throw this.initializationError
+    }
+
+    this.initializationInProgress = true
+    this.initializationError = null
+
     try {
-      // Create transporter
+      // Create transporter with improved error handling
+      logger.info(`Initializing email service with host: ${config.email.host}:${config.email.port}`)
+
+      // Check if required config values are present
+      if (!config.email.host || !config.email.auth.user || !config.email.auth.pass) {
+        throw new Error('Email configuration is incomplete. Check environment variables.')
+      }
+
+      // Create nodemailer transporter with additional debugging
       this.transporter = nodemailer.createTransport({
         host: config.email.host,
         port: config.email.port,
@@ -28,23 +52,68 @@ export class EmailService {
           pass: config.email.auth.pass,
         },
         tls: {
-          rejectUnauthorized: false, // For development environments with self-signed certs
+          // For development environments with self-signed certs
+          rejectUnauthorized: process.env.NODE_ENV === 'production',
+          // Adding debug for TLS issues
+          debug: process.env.NODE_ENV !== 'production',
         },
-      })
+        debug: process.env.NODE_ENV !== 'production', // Enable extra debug logging
+      } as nodemailer.TransportOptions)
 
       // Verify connection
       await this.transporter.verify()
 
       this.initialized = true
+      this.initializationError = null
+      this.retryCount = 0
       logger.info('Email service initialized successfully')
     } catch (error) {
-      logger.error('Failed to initialize email service:', error)
-      throw new Error(`Email service initialization failed: ${(error as Error).message}`)
+      this.initializationError = error as Error
+      this.initialized = false
+
+      // Log error details
+      logger.error('Failed to initialize email service:', {
+        error: error,
+        host: config.email.host,
+        port: config.email.port,
+        user: config.email.auth.user ? '***' : 'missing',
+        retryCount: this.retryCount,
+      })
+
+      // Retry logic
+      if (this.retryCount < this.MAX_RETRIES) {
+        this.retryCount++
+        this.initializationInProgress = false
+
+        logger.info(
+          `Retrying email service initialization in ${this.RETRY_DELAY / 1000}s (attempt ${this.retryCount} of ${this.MAX_RETRIES})`
+        )
+
+        // Schedule retry
+        setTimeout(() => {
+          this.initialize().catch((err) => {
+            logger.error('Email service retry failed:', err)
+          })
+        }, this.RETRY_DELAY)
+      } else {
+        // Max retries reached, reset for future attempts
+        this.retryCount = 0
+        this.initializationInProgress = false
+
+        // Consider falling back to a secondary email provider here
+        logger.error(`Email service initialization failed after ${this.MAX_RETRIES} retries`)
+
+        throw new Error(`Email service initialization failed: ${(error as Error).message}`)
+      }
+    } finally {
+      if (this.initialized || this.retryCount === 0) {
+        this.initializationInProgress = false
+      }
     }
   }
 
   /**
-   * Send an email
+   * Send an email with fallback options
    * @param options Email options
    */
   private static async sendEmail(options: {
@@ -61,6 +130,7 @@ export class EmailService {
     category?: string
   }): Promise<void> {
     try {
+      // Try to initialize if not already initialized
       if (!this.initialized) {
         await this.initialize()
       }
@@ -82,12 +152,48 @@ export class EmailService {
       logger.info(`Email sent to ${options.to}`)
     } catch (error) {
       logger.error('Failed to send email:', error)
+
+      // If the error appears to be connection-related, try to re-initialize
+      if (
+        error instanceof Error &&
+        (error.message.includes('connection') ||
+          error.message.includes('authentication') ||
+          error.message.includes('wrong version'))
+      ) {
+        // Force re-initialization
+        this.initialized = false
+        this.initializationInProgress = false
+
+        // Attempt to send one more time
+        if (!this.retryCount) {
+          this.retryCount++
+          await this.initialize()
+          return this.sendEmail(options)
+        }
+      }
+
       throw new Error(`Failed to send email: ${(error as Error).message}`)
     }
   }
 
   /**
-   * Send verification email
+   * Fallback method to log emails when service is down
+   * @param options Email options
+   */
+  private static logEmailFallback(options: any): void {
+    logger.warn('Using email logging fallback due to service issues')
+    logger.info('Email would have been sent:', {
+      to: options.to,
+      subject: options.subject,
+      text: options.text?.substring(0, 100) + '...' || '',
+    })
+
+    // You could also store failed emails in a queue to retry later
+    // e.g., save to a database table or message queue
+  }
+
+  /**
+   * Send verification email with error handling
    * @param email User's email address
    * @param token Verification token
    * @param req Express request object for building URLs
@@ -149,7 +255,17 @@ export class EmailService {
       })
     } catch (error) {
       logger.error('Failed to send verification email:', error)
-      throw new Error(`Failed to send verification email: ${(error as Error).message}`)
+
+      // Fall back to logging the email and potentially queue for retry
+      this.logEmailFallback({
+        to: email,
+        subject: 'Verify Your PledgePoint Account',
+        text: 'Verification token: ' + token,
+      })
+
+      // Don't throw the error up to the caller to prevent registration failures
+      // but do record it for monitoring
+      logger.error(`Registration email failed for ${email}, but user was still created`)
     }
   }
 

@@ -33,9 +33,9 @@ interface EmailConfig {
 
 // Create email configuration
 export const emailConfig: EmailConfig = {
-  host: process.env.EMAIL_HOST || 'smtp.example.com',
-  port: parseInt(process.env.EMAIL_PORT || '587', 10),
-  secure: process.env.EMAIL_SECURE === 'true',
+  host: process.env.EMAIL_HOST || 'pledgepoint-mailhog',
+  port: parseInt(process.env.EMAIL_PORT || '1025', 10),
+  secure: process.env.EMAIL_SECURE === 'false',
   auth: {
     user: process.env.EMAIL_USER || '',
     pass: process.env.EMAIL_PASSWORD || '',

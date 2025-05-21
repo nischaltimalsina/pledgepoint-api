@@ -17,7 +17,7 @@ services:
     ports:
       - "4324:4321"
     environment:
-      - MONGO_URL=mongodb://pledgepoint-mongodb:27017/pledgepoint-db
+      - MONGO_URL=mongodb://pledgepoint-mongodb:27017/pledgepoint
     networks:
       - pledgepoint-network
 
@@ -29,6 +29,16 @@ services:
       - '6389:6379'
     volumes:
       - redis-data:/data
+    networks:
+      - pledgepoint-network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: pledgepoint-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
     networks:
       - pledgepoint-network
 
@@ -51,6 +61,7 @@ services:
     depends_on:
       - mongodb
       - redis
+      - mailhog
 
 networks:
   pledgepoint-network:

@@ -307,12 +307,11 @@ export class AuthService {
         throw new AppError(400, 'Verification token is required')
       }
 
-      const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
-
       const user = await User.findOne({
-        emailVerificationToken: hashedToken,
+        emailVerificationToken: token,
         emailVerificationExpires: { $gt: Date.now() },
       })
+      console.log('user', user)
 
       if (!user) {
         throw new AppError(400, 'Invalid or expired verification token')

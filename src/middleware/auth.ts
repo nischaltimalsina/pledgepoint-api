@@ -22,6 +22,7 @@ export class AuthMiddleware {
       const token =
         TokenService.extractTokenFromHeader(authenticatedReq.headers.authorization) ||
         (req.cookies?.token as string)
+      console.log('Token:', token)
 
       if (!token) {
         return next(new AppError(401, 'Authentication required'))
@@ -29,6 +30,7 @@ export class AuthMiddleware {
 
       // Verify token
       const decoded = TokenService.verifyAccessToken(token)
+      console.log('Decoded token:', decoded)
 
       // Find user by id
       const user = await User.findById(decoded.id)
@@ -165,7 +167,7 @@ export class AuthMiddleware {
       const token =
         TokenService.extractTokenFromHeader(authenticatedReq.headers.authorization) ||
         (authenticatedReq.cookies?.token as string)
-
+      console.log('Token:', token)
       if (!token) {
         // No token, continue without authentication
         return next()
