@@ -30,15 +30,35 @@ export interface IOfficial extends Document {
     start: Date
     end: Date
   }
+  dob: Date
+  education?: {
+    degree?: string
+    institution?: string
+    year?: number
+  }
+  criminalRecord?: {
+    type?: string
+    description?: string
+    date?: Date
+    status?: string
+  }[]
+  assets?: {
+    type?: string
+    value?: number
+    description?: string
+  }[]
   contactInfo: {
     email?: string
     phone?: string
     address?: string
     website?: string
+    office: string
+    verified?: boolean
     socialMedia?: {
       facebook?: string
       twitter?: string
       instagram?: string
+      linkedIn?: string
     }
   }
   bio?: string
@@ -164,6 +184,61 @@ const officialSchema = new Schema<IOfficial>(
         required: [true, 'Term end date is required'],
       },
     },
+    dob: {
+      type: Date,
+      required: [true, 'Date of birth is required'],
+    },
+    education: {
+      degree: {
+        type: String,
+        trim: true,
+        maxlength: [100, 'Degree cannot exceed 100 characters'],
+      },
+      institution: {
+        type: String,
+        trim: true,
+        maxlength: [100, 'Institution cannot exceed 100 characters'],
+      },
+      year: {
+        type: Number,
+        min: [1900, 'Year must be after 1900'],
+        max: [new Date().getFullYear(), 'Year cannot be in the future'],
+      },
+    },
+    criminalRecord: [
+      {
+        type: String,
+        description: {
+          type: String,
+          trim: true,
+          maxlength: [500, 'Description cannot exceed 500 characters'],
+        },
+        date: {
+          type: Date,
+          required: [true, 'Criminal record date is required'],
+        },
+        status: {
+          type: String,
+          enum: ['pending', 'resolved', 'dismissed'],
+          default: 'pending',
+        },
+      },
+    ],
+    assets: [
+      {
+        type: String,
+        value: {
+          type: Number,
+          min: [0, 'Value must be a positive number'],
+          required: [true, 'Asset value is required'],
+        },
+        description: {
+          type: String,
+          trim: true,
+          maxlength: [500, 'Description cannot exceed 500 characters'],
+        },
+      },
+    ],
     contactInfo: {
       email: {
         type: String,
@@ -231,6 +306,11 @@ const officialSchema = new Schema<IOfficial>(
             message: 'Instagram must be a valid URL',
           },
         },
+      },
+      office: {
+        type: String,
+        trim: true,
+        maxlength: [100, 'Office cannot exceed 100 characters'],
       },
     },
     bio: {

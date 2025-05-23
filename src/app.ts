@@ -4,10 +4,14 @@ import express from 'express'
 import helmet from 'helmet'
 import mongoose from 'mongoose'
 import rateLimit from 'express-rate-limit'
+
 import { config } from './config'
 import { errorHandler } from './middleware/error-handler'
 import { logger } from './utils/logger'
 import { redis } from './services/redis.service'
+
+const swaggerUi = require('swagger-ui-express')
+const swaggerDocument = require('./swagger.json')
 
 // Import routes
 import authRoutes from './routes/auth.routes'
@@ -25,6 +29,7 @@ import { errorTrackingMiddleware, performanceTrackingMiddleware } from './middle
 dotenv.config()
 
 const app = express()
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
 
 // Connect to MongoDB
 mongoose

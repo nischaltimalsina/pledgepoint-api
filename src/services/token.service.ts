@@ -102,11 +102,11 @@ export class TokenService {
    * @returns Extracted token or null if not found
    */
   static extractTokenFromHeader(authHeader: string | undefined): string | null {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith('Bearer')) {
       return null
     }
 
-    return authHeader.split(' ')[1]
+    return authHeader.split('Bearer-')[1]
   }
 
   /**

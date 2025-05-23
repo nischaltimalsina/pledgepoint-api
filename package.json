@@ -43,6 +43,8 @@
     "qrcode": "^1.5.4",
     "redis": "^5.0.0",
     "speakeasy": "^2.0.0",
+    "swagger-ui-dist": "^5.22.0",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0",
     "web-push": "^3.6.7",
     "winston": "^3.17.0",

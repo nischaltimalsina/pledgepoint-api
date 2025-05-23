@@ -1,0 +1,1432 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PledgePoint API",
+    "description": "API for PledgePoint, covering Authentication, Officials, Promises, Campaigns, Learning, Districts, and Admin endpoints.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3030/api/v1",
+      "description": "Local development server"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": { "type": "string", "example": "John" },
+                  "lastName": { "type": "string", "example": "Doe" },
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "password": { "type": "string", "example": "SecurePass123!" },
+                  "confirmPassword": { "type": "string", "example": "SecurePass123!" }
+                },
+                "required": ["firstName", "lastName", "email", "password", "confirmPassword"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User registered successfully" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login a user, with optional 2FA code",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" },
+                  "password": { "type": "string", "example": "SecurePass123!" },
+                  "twoFactorCode": { "type": "string", "example": "123456" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User logged in successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/auth/refresh-token": {
+      "post": {
+        "summary": "Refresh the JWT token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": { "type": "string", "example": "your_refresh_token_here" }
+                },
+                "required": ["refreshToken"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Token refreshed successfully" },
+          "401": { "description": "Invalid refresh token" }
+        }
+      }
+    },
+    "/auth/verify-email/{token}": {
+      "get": {
+        "summary": "Verify a user's email with a token",
+        "tags": ["Authentication"],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "your_verification_token" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Email verified successfully" },
+          "400": { "description": "Invalid token" }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "summary": "Request a password reset link",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john@example.com" }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset link sent" },
+          "400": { "description": "Invalid email" }
+        }
+      }
+    },
+    "/auth/reset-password/{token}": {
+      "post": {
+        "summary": "Reset a user's password",
+        "tags": ["Authentication"],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "your_reset_token" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": { "type": "string", "example": "NewPassword123!" },
+                  "confirmPassword": { "type": "string", "example": "NewPassword123!" }
+                },
+                "required": ["password", "confirmPassword"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset successfully" },
+          "400": { "description": "Invalid token or input" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Retrieve the current authenticated user's details",
+        "tags": ["Authentication"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User details retrieved" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "patch": {
+        "summary": "Update the current user's profile",
+        "tags": ["Authentication"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": { "type": "string", "example": "Jane" },
+                  "district": { "type": "string", "example": "Kathmandu" },
+                  "bio": { "type": "string", "example": "Civic engagement enthusiast" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/officials": {
+      "get": {
+        "summary": "Retrieve a paginated list of officials",
+        "tags": ["Officials"],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          {
+            "name": "district",
+            "in": "query",
+            "schema": { "type": "string", "example": "Kathmandu" }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": { "type": "string", "example": "-averageRating.overall" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of officials" }
+        }
+      },
+      "post": {
+        "summary": "Create a new official (admin only)",
+        "tags": ["Officials"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "Ram Sharma" },
+                  "position": { "type": "string", "example": "Mayor" },
+                  "district": { "type": "string", "example": "Kathmandu" },
+                  "party": { "type": "string", "example": "Independent" },
+                  "term": {
+                    "type": "object",
+                    "properties": {
+                      "start": { "type": "string", "format": "date", "example": "2022-01-01" },
+                      "end": { "type": "string", "format": "date", "example": "2026-12-31" }
+                    }
+                  },
+                  "contactInfo": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "ram@kathmandu.gov.np"
+                      },
+                      "phone": { "type": "string", "example": "+977-1-4200000" }
+                    }
+                  }
+                },
+                "required": ["name", "position", "district", "party", "term"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Official created successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/officials/{id}": {
+      "get": {
+        "summary": "Retrieve details of a specific official",
+        "tags": ["Officials"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "official_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Official details" },
+          "404": { "description": "Official not found" }
+        }
+      }
+    },
+    "/officials/top-rated": {
+      "get": {
+        "summary": "Retrieve top-rated officials",
+        "tags": ["Officials"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 5 } },
+          {
+            "name": "district",
+            "in": "query",
+            "schema": { "type": "string", "example": "Kathmandu" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of top-rated officials" }
+        }
+      }
+    },
+    "/officials/{id}/rate": {
+      "post": {
+        "summary": "Rate an official",
+        "tags": ["Officials"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "official_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "integrity": { "type": "integer", "example": 4 },
+                  "responsiveness": { "type": "integer", "example": 5 },
+                  "effectiveness": { "type": "integer", "example": 3 },
+                  "transparency": { "type": "integer", "example": 4 },
+                  "comment": {
+                    "type": "string",
+                    "example": "Great responsiveness to citizen concerns."
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://example.com/evidence"
+                  }
+                },
+                "required": ["integrity", "responsiveness", "effectiveness", "transparency"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Rating submitted successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/officials/ratings/{ratingId}/upvote": {
+      "post": {
+        "summary": "Upvote a rating for an official",
+        "tags": ["Officials"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "ratingId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "rating_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Rating upvoted successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/officials/ratings/{ratingId}/downvote": {
+      "post": {
+        "summary": "Downvote a rating for an official",
+        "tags": ["Officials"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "ratingId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "rating_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Rating downvoted successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/promises": {
+      "get": {
+        "summary": "Retrieve a paginated list of promises",
+        "tags": ["Promises"],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "example": "in-progress" }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string", "example": "infrastructure" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of promises" }
+        }
+      },
+      "post": {
+        "summary": "Create a new promise",
+        "tags": ["Promises"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "officialId": { "type": "string", "example": "60d5ecb54e5d2b001f5e4e8a" },
+                  "title": { "type": "string", "example": "Build 10 new schools" },
+                  "description": {
+                    "type": "string",
+                    "example": "Commitment to construct 10 new schools by 2025"
+                  },
+                  "category": { "type": "string", "example": "education" },
+                  "datePromised": { "type": "string", "format": "date", "example": "2024-01-15" },
+                  "source": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://example.com/promise-source"
+                  }
+                },
+                "required": ["officialId", "title", "description", "category", "datePromised"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Promise created successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/promises/{id}": {
+      "get": {
+        "summary": "Retrieve details of a specific promise",
+        "tags": ["Promises"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "promise_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Promise details" },
+          "404": { "description": "Promise not found" }
+        }
+      }
+    },
+    "/promises/official/{officialId}": {
+      "get": {
+        "summary": "Retrieve promises by a specific official",
+        "tags": ["Promises"],
+        "parameters": [
+          {
+            "name": "officialId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "official_id" }
+          },
+          { "name": "status", "in": "query", "schema": { "type": "string", "example": "kept" } }
+        ],
+        "responses": {
+          "200": { "description": "List of promises by official" }
+        }
+      }
+    },
+    "/promises/statistics": {
+      "get": {
+        "summary": "Retrieve promise statistics",
+        "tags": ["Promises"],
+        "parameters": [
+          { "name": "officialId", "in": "query", "schema": { "type": "string", "example": "123" } },
+          {
+            "name": "district",
+            "in": "query",
+            "schema": { "type": "string", "example": "Kathmandu" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Promise statistics" }
+        }
+      }
+    },
+    "/promises/{id}/evidence": {
+      "post": {
+        "summary": "Add evidence to a promise",
+        "tags": ["Promises"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "promise_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "example": "Construction of 3 schools completed as of March 2024"
+                  },
+                  "source": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://example.com/progress-report"
+                  },
+                  "status": { "type": "string", "example": "supporting" }
+                },
+                "required": ["description", "source", "status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Evidence added successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/promises/{id}/comment": {
+      "post": {
+        "summary": "Add a comment to a promise",
+        "tags": ["Promises"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "promise_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "example": "This is a great initiative for our district."
+                  }
+                },
+                "required": ["text"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Comment added successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/promises/{id}/evidence/{evidenceIndex}/upvote": {
+      "post": {
+        "summary": "Upvote evidence for a promise",
+        "tags": ["Promises"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "promise_id" }
+          },
+          {
+            "name": "evidenceIndex",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "evidence_index" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Evidence upvoted successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns": {
+      "get": {
+        "summary": "Retrieve a paginated list of campaigns",
+        "tags": ["Campaigns"],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "example": "active" } },
+          {
+            "name": "district",
+            "in": "query",
+            "schema": { "type": "string", "example": "Kathmandu" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of campaigns" }
+        }
+      },
+      "post": {
+        "summary": "Create a new campaign",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "example": "Clean Bagmati River Initiative" },
+                  "description": {
+                    "type": "string",
+                    "example": "A community-driven campaign to clean the Bagmati River"
+                  },
+                  "category": { "type": "string", "example": "environment" },
+                  "district": { "type": "string", "example": "Kathmandu" },
+                  "goal": { "type": "integer", "example": 1000 },
+                  "image": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://example.com/campaign-image.jpg"
+                  }
+                },
+                "required": ["title", "description", "category", "district", "goal"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Campaign created successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns/{id}": {
+      "get": {
+        "summary": "Retrieve details of a specific campaign",
+        "tags": ["Campaigns"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "campaign_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Campaign details" },
+          "404": { "description": "Campaign not found" }
+        }
+      }
+    },
+    "/campaigns/statistics": {
+      "get": {
+        "summary": "Retrieve campaign statistics",
+        "tags": ["Campaigns"],
+        "parameters": [
+          {
+            "name": "district",
+            "in": "query",
+            "schema": { "type": "string", "example": "Kathmandu" }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string", "example": "environment" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Campaign statistics" }
+        }
+      }
+    },
+    "/campaigns/trending": {
+      "get": {
+        "summary": "Retrieve trending campaigns",
+        "tags": ["Campaigns"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 5 } },
+          { "name": "days", "in": "query", "schema": { "type": "integer", "example": 7 } }
+        ],
+        "responses": {
+          "200": { "description": "List of trending campaigns" }
+        }
+      }
+    },
+    "/campaigns/category/{category}": {
+      "get": {
+        "summary": "Retrieve campaigns by category",
+        "tags": ["Campaigns"],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "environment" }
+          },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "List of campaigns by category" }
+        }
+      }
+    },
+    "/campaigns/my/created": {
+      "get": {
+        "summary": "Retrieve campaigns created by the authenticated user",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of created campaigns" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns/my/supported": {
+      "get": {
+        "summary": "Retrieve campaigns supported by the authenticated user",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of supported campaigns" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns/{id}/support": {
+      "post": {
+        "summary": "Support a campaign",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "campaign_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Campaign supported successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "summary": "Remove support for a campaign",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "campaign_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Support removed successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns/{id}/update": {
+      "post": {
+        "summary": "Add an update to a campaign",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "campaign_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "example": "We've reached 50% of our goal! Thank you for the support."
+                  }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Update added successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns/{id}/discussion": {
+      "post": {
+        "summary": "Add a discussion to a campaign",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "campaign_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "example": "How can we get more volunteers for this initiative?"
+                  }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Discussion added successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/campaigns/{id}/discussion/{discussionId}/reply": {
+      "post": {
+        "summary": "Reply to a discussion in a campaign",
+        "tags": ["Campaigns"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "campaign_id" }
+          },
+          {
+            "name": "discussionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "discussion_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "example": "I can help organize volunteers in my area."
+                  }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reply added successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/learning/modules": {
+      "get": {
+        "summary": "Retrieve a paginated list of learning modules",
+        "tags": ["Learning"],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string", "example": "civics" }
+          },
+          { "name": "region", "in": "query", "schema": { "type": "string", "example": "Nepal" } }
+        ],
+        "responses": {
+          "200": { "description": "List of learning modules" }
+        }
+      }
+    },
+    "/learning/modules/{id}": {
+      "get": {
+        "summary": "Retrieve details of a specific learning module",
+        "tags": ["Learning"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "module_id" }
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Module details" },
+          "404": { "description": "Module not found" }
+        }
+      }
+    },
+    "/learning/modules/category/{category}": {
+      "get": {
+        "summary": "Retrieve learning modules by category",
+        "tags": ["Learning"],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "civics" }
+          },
+          { "name": "region", "in": "query", "schema": { "type": "string", "example": "Nepal" } }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of modules by category" }
+        }
+      }
+    },
+    "/learning/progress/user": {
+      "get": {
+        "summary": "Retrieve the authenticated user's learning progress",
+        "tags": ["Learning"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "completed", "in": "query", "schema": { "type": "boolean", "example": false } }
+        ],
+        "responses": {
+          "200": { "description": "User's learning progress" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/learning/progress/completed": {
+      "get": {
+        "summary": "Retrieve the authenticated user's completed learning modules",
+        "tags": ["Learning"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of completed modules" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/learning/recommendations": {
+      "get": {
+        "summary": "Retrieve recommended learning modules for the authenticated user",
+        "tags": ["Learning"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 5 } }
+        ],
+        "responses": {
+          "200": { "description": "List of recommended modules" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/learning/statistics": {
+      "get": {
+        "summary": "Retrieve learning statistics",
+        "tags": ["Learning"],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string", "example": "civics" }
+          },
+          { "name": "region", "in": "query", "schema": { "type": "string", "example": "Nepal" } }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Learning statistics" }
+        }
+      }
+    },
+    "/learning/progress": {
+      "post": {
+        "summary": "Start or update progress for a learning module",
+        "tags": ["Learning"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "moduleId": { "type": "string", "example": "60d5ecb54e5d2b001f5e4e8a" },
+                  "progress": { "type": "integer", "example": 75 }
+                },
+                "required": ["moduleId", "progress"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Progress updated successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/learning/quiz/{moduleId}": {
+      "post": {
+        "summary": "Submit answers for a quiz in a learning module",
+        "tags": ["Learning"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "moduleId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "module_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["option1", "option3", "option2", "option4"]
+                  }
+                },
+                "required": ["answers"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Quiz submitted successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/districts": {
+      "get": {
+        "summary": "Retrieve a paginated list of districts",
+        "tags": ["Districts"],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 20 } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "example": "municipal" } },
+          { "name": "region", "in": "query", "schema": { "type": "string", "example": "Central" } },
+          { "name": "active", "in": "query", "schema": { "type": "boolean", "example": true } }
+        ],
+        "responses": {
+          "200": { "description": "List of districts" }
+        }
+      }
+    },
+    "/districts/{id}": {
+      "get": {
+        "summary": "Retrieve details of a specific district",
+        "tags": ["Districts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "district_id" }
+          },
+          {
+            "name": "includeStats",
+            "in": "query",
+            "schema": { "type": "boolean", "example": true }
+          }
+        ],
+        "responses": {
+          "200": { "description": "District details" },
+          "404": { "description": "District not found" }
+        }
+      }
+    },
+    "/districts/region/{region}": {
+      "get": {
+        "summary": "Retrieve districts by region",
+        "tags": ["Districts"],
+        "parameters": [
+          {
+            "name": "region",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "Central" }
+          },
+          { "name": "type", "in": "query", "schema": { "type": "string", "example": "federal" } },
+          { "name": "active", "in": "query", "schema": { "type": "boolean", "example": true } }
+        ],
+        "responses": {
+          "200": { "description": "List of districts by region" }
+        }
+      }
+    },
+    "/districts/type/{type}": {
+      "get": {
+        "summary": "Retrieve districts by type",
+        "tags": ["Districts"],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "municipal" }
+          },
+          { "name": "region", "in": "query", "schema": { "type": "string", "example": "Central" } },
+          { "name": "active", "in": "query", "schema": { "type": "boolean", "example": true } }
+        ],
+        "responses": {
+          "200": { "description": "List of districts by type" }
+        }
+      }
+    },
+    "/districts/{id}/statistics": {
+      "get": {
+        "summary": "Retrieve statistics for a specific district",
+        "tags": ["Districts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "district_id" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "District statistics" }
+        }
+      }
+    },
+    "/districts/{id}/officials": {
+      "get": {
+        "summary": "Retrieve officials for a specific district",
+        "tags": ["Districts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "district_id" }
+          },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          { "name": "position", "in": "query", "schema": { "type": "string", "example": "Mayor" } }
+        ],
+        "responses": {
+          "200": { "description": "List of officials in district" }
+        }
+      }
+    },
+    "/districts/{id}/campaigns": {
+      "get": {
+        "summary": "Retrieve campaigns for a specific district",
+        "tags": ["Districts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "district_id" }
+          },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "example": "active" } }
+        ],
+        "responses": {
+          "200": { "description": "List of campaigns in district" }
+        }
+      }
+    },
+    "/districts/search": {
+      "get": {
+        "summary": "Search for districts",
+        "tags": ["Districts"],
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string", "example": "Kathmandu" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 10 } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "example": "municipal" } }
+        ],
+        "responses": {
+          "200": { "description": "List of matching districts" }
+        }
+      }
+    },
+    "/districts/regions": {
+      "get": {
+        "summary": "Retrieve all regions",
+        "tags": ["Districts"],
+        "parameters": [
+          { "name": "country", "in": "query", "schema": { "type": "string", "example": "Nepal" } }
+        ],
+        "responses": {
+          "200": { "description": "List of regions" }
+        }
+      }
+    },
+    "/admin/dashboard": {
+      "get": {
+        "summary": "Retrieve dashboard statistics (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "timeRange", "in": "query", "schema": { "type": "string", "example": "month" } }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard statistics" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/analytics": {
+      "get": {
+        "summary": "Retrieve analytics data (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "metric", "in": "query", "schema": { "type": "string", "example": "users" } },
+          {
+            "name": "timeRange",
+            "in": "query",
+            "schema": { "type": "string", "example": "month" }
+          },
+          {
+            "name": "district",
+            "in": "query",
+            "schema": { "type": "string", "example": "Kathmandu" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Analytics data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "Retrieve a paginated list of users (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 20 } },
+          { "name": "role", "in": "query", "schema": { "type": "string", "example": "user" } },
+          { "name": "level", "in": "query", "schema": { "type": "string", "example": "advocate" } },
+          { "name": "search", "in": "query", "schema": { "type": "string", "example": "john" } }
+        ],
+        "responses": {
+          "200": { "description": "List of users" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "patch": {
+        "summary": "Update a user's details (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "user_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": { "type": "string", "example": "moderator" },
+                  "accountStatus": { "type": "string", "example": "active" },
+                  "level": { "type": "string", "example": "advocate" },
+                  "impactPoints": { "type": "integer", "example": 150 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User updated successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/moderation": {
+      "get": {
+        "summary": "Retrieve content pending moderation (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "type", "in": "query", "schema": { "type": "string", "example": "ratings" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "example": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "example": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "List of pending moderation content" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/moderate/rating/{id}": {
+      "patch": {
+        "summary": "Moderate a rating (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "rating_id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": { "type": "string", "example": "approve" },
+                  "reason": { "type": "string", "example": "Meets community guidelines" }
+                },
+                "required": ["action"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Rating moderated successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/health": {
+      "get": {
+        "summary": "Retrieve system health status (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "System health status" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/admin/reports/users": {
+      "get": {
+        "summary": "Generate a user report (admin only)",
+        "tags": ["Admin"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date", "example": "2024-01-01" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date", "example": "2024-12-31" }
+          },
+          { "name": "format", "in": "query", "schema": { "type": "string", "example": "csv" } }
+        ],
+        "responses": {
+          "200": { "description": "User report generated" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

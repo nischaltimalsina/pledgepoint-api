@@ -22,7 +22,6 @@ export class AuthMiddleware {
       const token =
         TokenService.extractTokenFromHeader(authenticatedReq.headers.authorization) ||
         (req.cookies?.token as string)
-      console.log('Token:', token)
 
       if (!token) {
         return next(new AppError(401, 'Authentication required'))
@@ -59,6 +58,8 @@ export class AuthMiddleware {
   static authorize(roles: string[]): (req: Request, res: Response, next: NextFunction) => void {
     return (req: Request, res: Response, next: NextFunction): void => {
       const authenticatedReq = req as AuthenticatedRequest
+      console.log('Authenticated user:', authenticatedReq.user)
+      // Check if user is authenticated
       if (!authenticatedReq.user) {
         return next(new AppError(401, 'Authentication required'))
       }
