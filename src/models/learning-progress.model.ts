@@ -1,36 +1,5 @@
+import { ILearningProgress } from '@/interfaces/learning-progress'
 import mongoose, { Document, Schema, Types } from 'mongoose'
-import {
-  ITextData,
-  IVideoData,
-  IQuizData,
-  IInfographicData,
-  IModuleContent,
-  IQuizQuestion,
-} from './learning-module.model'
-
-/**
- * Interface for quiz result
- */
-export interface IQuizResult {
-  questionId: string
-  answerId: string
-  correct: boolean
-}
-
-/**
- * Interface for LearningProgress document
- */
-export interface ILearningProgress extends Document {
-  userId: Types.ObjectId
-  moduleId: Types.ObjectId
-  progress: number
-  completed: boolean
-  quizResults: IQuizResult[]
-  pointsEarned: number
-  startedAt: Date
-  completedAt?: Date
-}
-
 // Schema for learning progress
 const learningProgressSchema = new Schema<ILearningProgress>(
   {

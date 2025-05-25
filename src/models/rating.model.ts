@@ -1,28 +1,8 @@
-import mongoose, { Document, Schema, Types } from 'mongoose'
-
-/**
- * Interface for Rating document
- */
-export interface IRating extends Document {
-  officialId: Types.ObjectId
-  userId: Types.ObjectId
-  integrity: number
-  responsiveness: number
-  effectiveness: number
-  transparency: number
-  overall: number
-  comment: string
-  evidence: string
-  upvotes: Types.ObjectId[]
-  downvotes: Types.ObjectId[]
-  status: 'pending' | 'approved' | 'rejected'
-  moderatorNote?: string
-  createdAt: Date
-  updatedAt: Date
-}
+import { IRating } from '@/interfaces/rating'
+import mongoose, { Schema } from 'mongoose'
 
 // Schema for rating
-const ratingSchema = new Schema<IRating>(
+export const ratingSchema = new Schema<IRating>(
   {
     officialId: {
       type: Schema.Types.ObjectId,

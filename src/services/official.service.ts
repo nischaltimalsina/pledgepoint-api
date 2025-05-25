@@ -248,8 +248,7 @@ export class OfficialService {
       )
 
       if (existingRatingIndex !== -1) {
-        // Update existing rating in the official document
-        official.ratings[existingRatingIndex] = {
+        official.ratings[existingRatingIndex] = new Rating({
           ...official.ratings[existingRatingIndex],
           integrity: ratingData.integrity,
           responsiveness: ratingData.responsiveness,
@@ -258,22 +257,6 @@ export class OfficialService {
           overall,
           comment: ratingData.comment,
           evidence: ratingData.evidence,
-          updatedAt: new Date(),
-        }
-      } else {
-        // Add new rating to the official document
-        official.ratings.push({
-          userId: new Types.ObjectId(userId),
-          integrity: ratingData.integrity,
-          responsiveness: ratingData.responsiveness,
-          effectiveness: ratingData.effectiveness,
-          transparency: ratingData.transparency,
-          overall,
-          comment: ratingData.comment,
-          evidence: ratingData.evidence,
-          upvotes: [],
-          downvotes: [],
-          createdAt: new Date(),
           updatedAt: new Date(),
         })
       }

@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer'
 import { Request } from 'express'
 import { config } from '../config'
 import { logger } from '../utils/logger'
-import { IUser } from '../models/user.model'
+import { IUser } from '../interfaces/user'
 
 /**
  * Service for sending emails

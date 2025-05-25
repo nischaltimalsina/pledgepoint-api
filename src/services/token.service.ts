@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken'
 import { config, StringValue } from '../config'
 import { logger } from '../utils/logger'
 import { AppError } from '../middleware/error-handler'
-import { IUser } from '@/models/user.model'
+import { IUser } from '@/interfaces/user'
 
 /**
  * Token payload interface

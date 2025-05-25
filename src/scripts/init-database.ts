@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 import { config } from '../config'
-import { User, Badge, District, LearningModule, ITextData, IQuizData, IVideoData } from '../models'
+import { User, Badge, District, LearningModule } from '../models'
+import { ITextData, IVideoData, IQuizData } from '../interfaces/learning-module'
 import { logger } from '../utils/logger'
 
 /**
