@@ -8,6 +8,9 @@ export interface IOfficial extends Document {
   name: string
   position: string
   district: string
+  constituency?: string // Name for display
+  constituencyId?: Types.ObjectId // Reference to Constituency model
+  assemblyId?: Types.ObjectId // Reference to Assembly model
   party: string
   term: {
     start: Date
@@ -45,6 +48,7 @@ export interface IOfficial extends Document {
     }
   }
   bio?: string
+  verified?: boolean
   photo?: string
   ratings: IRating[]
   averageRating: {
@@ -55,6 +59,7 @@ export interface IOfficial extends Document {
     overall: number
   }
   totalRatings: number
+  active: boolean
   createdAt: Date
   updatedAt: Date
 

@@ -24,6 +24,9 @@ import badgesRoutes from './routes/badges.routes'
 import adminRoutes from './routes/admin.routes'
 import districtsRoutes from './routes/districts.routes'
 import ratingsRoutes from './routes/ratings.routes'
+import constituencyRoutes from './routes/constituencies.routes'
+import assemblyRoutes from './routes/assemblies.routes'
+
 import { errorTrackingMiddleware, performanceTrackingMiddleware } from './middleware/error-tracking'
 
 dotenv.config()
@@ -77,6 +80,8 @@ app.use('/api/v1/badges', badgesRoutes)
 app.use('/api/v1/admin', adminRoutes)
 app.use('/api/v1/districts', districtsRoutes)
 app.use('/api/v1/ratings', ratingsRoutes)
+app.use('/api/v1/constituencies', constituencyRoutes)
+app.use('/api/v1/assemblies', assemblyRoutes)
 
 // Error handler
 app.use(performanceTrackingMiddleware(5000)) // Track requests > 5s

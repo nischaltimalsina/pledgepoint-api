@@ -1,10 +1,12 @@
-export { User } from './user.model'
-export { Official } from './official.model'
-export { Promise } from './promise.model'
-export { Campaign } from './campaign.model'
-export { LearningModule } from './learning-module.model'
-export { LearningProgress } from './learning-progress.model'
-export { Badge } from './badge.model'
-export { Activity } from './activity.model'
-export { District } from './district.model'
-export { Rating } from './rating.model'
+export * from './activity.model';
+export * from './assembly.model';
+export * from './badge.model';
+export * from './campaign.model';
+export * from './constituency.model';
+export * from './district.model';
+export * from './learning-module.model';
+export * from './learning-progress.model';
+export * from './official.model';
+export * from './promise.model';
+export * from './rating.model';
+export * from './user.model';
