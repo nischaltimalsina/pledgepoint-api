@@ -29,6 +29,15 @@ import assemblyRoutes from './routes/assemblies.routes'
 
 import { errorTrackingMiddleware, performanceTrackingMiddleware } from './middleware/error-tracking'
 
+import {
+  advancedSanitization,
+  securityHeaders,
+  requestSizeLimiter,
+  csrfProtection,
+} from './middleware/security'
+import { accountLockoutProtection } from './middleware/auth'
+import { RateLimiter } from './middleware/rate-limiter'
+
 dotenv.config()
 
 const app = express()
@@ -55,14 +64,12 @@ app.use(cors(config.cors))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// Apply rate limiting
-const limiter = rateLimit({
-  windowMs: config.security.rateLimits.window * 1000,
-  max: config.security.rateLimits.max,
-  standardHeaders: true,
-  legacyHeaders: false,
-})
-app.use(limiter)
+app.use(RateLimiter.apiLimiter)
+app.use(securityHeaders)
+app.use(requestSizeLimiter('10mb'))
+app.use(advancedSanitization)
+app.use(csrfProtection)
+app.use(accountLockoutProtection)
 
 // Basic health check route
 app.get('/health', (req, res) => {

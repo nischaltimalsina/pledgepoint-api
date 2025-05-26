@@ -1,5 +1,5 @@
 import { Request } from 'express'
-import { IUser } from '../models/user.model'
+import { IUser } from '../interfaces/user'
 
 /**
  * Interface for requests that require authentication
@@ -7,6 +7,11 @@ import { IUser } from '../models/user.model'
  */
 export interface AuthenticatedRequest extends Request {
   user: IUser
+  tokenInfo?: {
+    iat: number
+    age: number
+    isRecent: boolean
+  }
 }
 
 /**
