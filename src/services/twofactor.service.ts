@@ -1,7 +1,7 @@
 import speakeasy from 'speakeasy'
 import QRCode from 'qrcode'
 import crypto from 'crypto'
-import { IUser } from '../models/user.model'
+import { IUser } from '@/interfaces/user'
 import { logger } from '../utils/logger'
 import { AppError } from '../middleware/error-handler'
 

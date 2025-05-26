@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 import crypto from 'crypto'
-import { IUser, User } from '../models/user.model'
+import { User } from '../models/user.model'
 import { TokenService } from './token.service'
 import { EmailService } from './email.service'
 import { AppError } from '../middleware/error-handler'
@@ -8,6 +8,7 @@ import { logger } from '../utils/logger'
 import { Request } from 'express'
 import { PasswordUtils } from '../utils/password'
 import { TwoFactorService } from './twofactor.service'
+import { IUser } from '@/interfaces/user'
 
 /**
  * Authentication service
