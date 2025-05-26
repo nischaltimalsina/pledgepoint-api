@@ -315,7 +315,6 @@ export class ErrorTrackingService {
     try {
       const redis = RedisService.getInstance()
       const now = Date.now()
-      const windowStart = now - this.RATE_LIMIT_WINDOW * 1000
 
       // Check for critical errors (immediate alert)
       if (severity === ErrorSeverity.CRITICAL) {
