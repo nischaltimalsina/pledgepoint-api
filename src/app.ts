@@ -68,7 +68,6 @@ app.use(RateLimiter.apiLimiter)
 app.use(securityHeaders)
 app.use(requestSizeLimiter('10mb'))
 app.use(advancedSanitization)
-app.use(csrfProtection)
 app.use(accountLockoutProtection)
 
 // Basic health check route
@@ -78,6 +77,8 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/v1/auth', authRoutes)
+
+app.use(csrfProtection)
 app.use('/api/v1/officials', officialsRoutes)
 app.use('/api/v1/promises', promisesRoutes)
 app.use('/api/v1/campaigns', campaignsRoutes)

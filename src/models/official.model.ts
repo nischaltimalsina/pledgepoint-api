@@ -64,9 +64,20 @@ const officialSchema = new Schema<IOfficial>(
         },
       },
     },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other', 'prefer not to say'],
+      default: 'prefer not to say',
+      required: [true, 'Gender is required'],
+      validate: {
+        validator: function (value: string) {
+          return ['male', 'female', 'other', 'prefer not to say'].includes(value)
+        },
+        message: 'Invalid gender value',
+      },
+    },
     dob: {
       type: Date,
-      required: [true, 'Date of birth is required'],
       validate: {
         validator: function (dob: Date) {
           const today = new Date()

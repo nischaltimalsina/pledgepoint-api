@@ -16,6 +16,7 @@ export interface IOfficial extends Document {
     start: Date
     end: Date
   }
+  gender: 'male' | 'female' | 'other' | 'prefer not to say'
   dob: Date
   education?: {
     degree?: string

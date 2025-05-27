@@ -3,6 +3,7 @@ import helmet from 'helmet'
 import { AppError } from './error-handler'
 import { logger } from '../utils/logger'
 import { RateLimiter } from './rate-limiter'
+import { Multer } from 'multer'
 
 /**
  * CRITICAL SECURITY FIXES:
@@ -91,7 +92,14 @@ export const secureFileUpload = (
   allowedMimeTypes: string[],
   maxFileSize: number = 5 * 1024 * 1024
 ) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (
+    req: Request & {
+      file?: Express.Multer.File
+      files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] }
+    },
+    res: Response,
+    next: NextFunction
+  ) => {
     // This runs after multer processes files
     if (req.file || req.files) {
       const files = req.files
