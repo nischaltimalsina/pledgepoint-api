@@ -17,7 +17,7 @@ export interface IOfficial extends Document {
     end: Date
   }
   gender: 'male' | 'female' | 'other' | 'prefer not to say'
-  dob: Date
+  dob?: Date
   education?: {
     degree?: string
     institution?: string
@@ -65,5 +65,5 @@ export interface IOfficial extends Document {
   updatedAt: Date
 
   // Methods
-  calculateAverageRatings(): void
+  updateAverageRatings(): void
 }

@@ -1,8 +1,6 @@
 import { IOfficial } from '@/interfaces/official'
 import mongoose, { Schema } from 'mongoose'
-import { ratingSchema } from './rating.model'
-import { IRating } from '@/interfaces/rating'
-// Schema for official
+
 const officialSchema = new Schema<IOfficial>(
   {
     name: {
@@ -62,18 +60,6 @@ const officialSchema = new Schema<IOfficial>(
           },
           message: 'Term end date must be after start date',
         },
-      },
-    },
-    gender: {
-      type: String,
-      enum: ['male', 'female', 'other', 'prefer not to say'],
-      default: 'prefer not to say',
-      required: [true, 'Gender is required'],
-      validate: {
-        validator: function (value: string) {
-          return ['male', 'female', 'other', 'prefer not to say'].includes(value)
-        },
-        message: 'Invalid gender value',
       },
     },
     dob: {
@@ -233,7 +219,6 @@ const officialSchema = new Schema<IOfficial>(
       maxlength: [1000, 'Bio cannot exceed 1000 characters'],
     },
     photo: String,
-    ratings: [ratingSchema],
     averageRating: {
       integrity: {
         type: Number,
@@ -287,7 +272,15 @@ officialSchema.index({ assemblyId: 1, active: 1 })
 officialSchema.index({ party: 1, active: 1 })
 officialSchema.index({ 'averageRating.overall': -1, active: 1 })
 officialSchema.index({ 'term.end': 1, active: 1 })
-officialSchema.index({ 'contactInfo.verified': 1, active: 1 })
+officialSchema.index({ verified: 1, active: 1 })
+
+// Virtual to get ratings from Rating collection
+officialSchema.virtual('ratings', {
+  ref: 'Rating',
+  localField: '_id',
+  foreignField: 'officialId',
+  match: { status: 'approved' }, // Only include approved ratings
+})
 
 // Virtual for checking if term is current
 officialSchema.virtual('isCurrentTerm').get(function () {
@@ -306,73 +299,88 @@ officialSchema.virtual('termStatus').get(function () {
 // Virtual for age
 officialSchema.virtual('age').get(function () {
   const today = new Date()
-  const birthDate = new Date(this.dob)
-  let age = today.getFullYear() - birthDate.getFullYear()
-  const monthDiff = today.getMonth() - birthDate.getMonth()
+  const birthDate = this.dob ? new Date(this.dob) : null
+  let age = 0
+  if (birthDate) {
+    age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
   }
 
   return age
 })
 
-// Method to calculate average ratings
-officialSchema.methods.calculateAverageRatings = function (): void {
-  if (!this.ratings || this.ratings.length === 0) {
-    this.averageRating = {
-      integrity: 0,
-      responsiveness: 0,
-      effectiveness: 0,
-      transparency: 0,
-      overall: 0,
+// Method to update average ratings by querying Rating collection
+officialSchema.methods.updateAverageRatings = async function (): Promise<void> {
+  try {
+    const Rating = mongoose.model('Rating')
+
+    // Get all approved ratings for this official
+    const ratings = await Rating.find({
+      officialId: this._id,
+      status: 'approved',
+    })
+
+    if (!ratings || ratings.length === 0) {
+      this.averageRating = {
+        integrity: 0,
+        responsiveness: 0,
+        effectiveness: 0,
+        transparency: 0,
+        overall: 0,
+      }
+      this.totalRatings = 0
+      await this.save()
+      return
     }
-    this.totalRatings = 0
-    return
+
+    // Calculate averages
+    const count = ratings.length
+    const totals = ratings.reduce(
+      (acc, rating) => ({
+        integrity: acc.integrity + rating.integrity,
+        responsiveness: acc.responsiveness + rating.responsiveness,
+        effectiveness: acc.effectiveness + rating.effectiveness,
+        transparency: acc.transparency + rating.transparency,
+        overall: acc.overall + rating.overall,
+      }),
+      { integrity: 0, responsiveness: 0, effectiveness: 0, transparency: 0, overall: 0 }
+    )
+
+    this.averageRating = {
+      integrity: parseFloat((totals.integrity / count).toFixed(1)),
+      responsiveness: parseFloat((totals.responsiveness / count).toFixed(1)),
+      effectiveness: parseFloat((totals.effectiveness / count).toFixed(1)),
+      transparency: parseFloat((totals.transparency / count).toFixed(1)),
+      overall: parseFloat((totals.overall / count).toFixed(1)),
+    }
+
+    this.totalRatings = count
+    await this.save()
+  } catch (error) {
+    console.error(`Error updating average ratings for official ${this._id}:`, error)
   }
+}
 
-  // Calculate average for each category
-  const totalIntegrity = this.ratings.reduce(
-    (sum: number, rating: IRating) => sum + rating.integrity,
-    0
-  )
-  const totalResponsiveness = this.ratings.reduce(
-    (sum: number, rating: IRating) => sum + rating.responsiveness,
-    0
-  )
-  const totalEffectiveness = this.ratings.reduce(
-    (sum: number, rating: IRating) => sum + rating.effectiveness,
-    0
-  )
-  const totalTransparency = this.ratings.reduce(
-    (sum: number, rating: IRating) => sum + rating.transparency,
-    0
-  )
-  const totalOverall = this.ratings.reduce(
-    (sum: number, rating: IRating) => sum + rating.overall,
-    0
-  )
-
-  const count = this.ratings.length
-
-  this.averageRating = {
-    integrity: parseFloat((totalIntegrity / count).toFixed(1)),
-    responsiveness: parseFloat((totalResponsiveness / count).toFixed(1)),
-    effectiveness: parseFloat((totalEffectiveness / count).toFixed(1)),
-    transparency: parseFloat((totalTransparency / count).toFixed(1)),
-    overall: parseFloat((totalOverall / count).toFixed(1)),
+// Method to get user's rating for this official
+officialSchema.methods.getUserRating = async function (userId: string) {
+  try {
+    const Rating = mongoose.model('Rating')
+    return await Rating.findOne({
+      officialId: this._id,
+      userId: new mongoose.Types.ObjectId(userId),
+    })
+  } catch (error) {
+    console.error(`Error getting user rating for official ${this._id}:`, error)
+    return null
   }
-
-  this.totalRatings = count
 }
 
 // Pre-save middleware to auto-populate constituency name
 officialSchema.pre('save', async function (next) {
-  // Update average ratings if ratings modified
-  if (this.isModified('ratings')) {
-    this.calculateAverageRatings()
-  }
-
   // Auto-populate constituency name from constituencyId
   if (this.isModified('constituencyId') && this.constituencyId) {
     try {
@@ -415,7 +423,6 @@ officialSchema.statics.findByAssembly = function (assemblyId: string) {
     active: true,
   }).sort({ 'term.start': -1 })
 }
-
 
 // Create and export the model
 export const Official = mongoose.model<IOfficial>('Official', officialSchema)

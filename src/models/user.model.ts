@@ -39,6 +39,12 @@ const userSchema = new Schema<IUser>(
       enum: ['user', 'admin', 'moderator', 'superadmin'],
       default: 'user',
     },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other', 'prefer-not-to-say'],
+      default: 'prefer-not-to-say',
+    },
+    dob: Date,
     accountStatus: {
       type: String,
       enum: ['pending', 'active', 'suspended'],

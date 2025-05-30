@@ -7,6 +7,8 @@ export interface IUser extends Document {
   email: string
   password: string
   role: 'user' | 'admin' | 'moderator' | 'superadmin'
+  gender?: 'male' | 'female' | 'other' | 'prefer not to say'
+  dob?: Date
   accountStatus: 'pending' | 'active' | 'suspended'
   active: boolean
   twoFactorEnabled: boolean

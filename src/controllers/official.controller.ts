@@ -80,8 +80,11 @@ export class OfficialController {
       const userId = authenticatedReq.user._id.toString()
       const ratingData = authenticatedReq.body
 
-      const rating = await OfficialService.rateOfficial(id, userId, ratingData)
+      console.log(`Rating data for official ID ${id}:`, ratingData)
+      console.log(`User ID: ${userId}`)
 
+      const rating = await OfficialService.rateOfficial(id, userId, ratingData)
+      console.log(`Rating result for official ID ${id}:`, rating)
       res.status(200).json({
         message: 'Official rated successfully',
         data: rating,
@@ -206,5 +209,3 @@ export class OfficialController {
     }
   }
 }
-
-//ongoing, overdue, to begin, audit status, type, 

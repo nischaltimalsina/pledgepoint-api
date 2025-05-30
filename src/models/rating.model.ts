@@ -1,7 +1,6 @@
 import { IRating } from '@/interfaces/rating'
 import mongoose, { Schema } from 'mongoose'
 
-// Schema for rating
 export const ratingSchema = new Schema<IRating>(
   {
     officialId: {
@@ -102,11 +101,13 @@ export const ratingSchema = new Schema<IRating>(
   }
 )
 
-// Create compound index for user and official
+// Create compound index for user and official (one rating per user per official)
 ratingSchema.index({ userId: 1, officialId: 1 }, { unique: true })
 
-// Index for vote count
-ratingSchema.index({ 'upvotes.length': -1 })
+// Index for efficient queries
+ratingSchema.index({ officialId: 1, status: 1 })
+ratingSchema.index({ userId: 1, createdAt: -1 })
+ratingSchema.index({ status: 1, createdAt: -1 })
 
 // Virtual for vote count
 ratingSchema.virtual('voteCount').get(function () {
@@ -126,6 +127,34 @@ ratingSchema.pre('save', function (next) {
     this.overall = parseFloat((sum / 4).toFixed(1))
   }
   next()
+})
+
+// Post-save middleware to update official's average ratings
+ratingSchema.post('save', async function () {
+  try {
+    const Official = mongoose.model('Official')
+    const official = await Official.findById(this.officialId)
+    if (official) {
+      await official.updateAverageRatings()
+    }
+  } catch (error) {
+    console.error('Error updating official ratings after rating save:', error)
+  }
+})
+
+// Post-remove middleware to update official's average ratings
+ratingSchema.post('findOneAndDelete', async function () {
+  try {
+    if (this.getQuery().officialId) {
+      const Official = mongoose.model('Official')
+      const official = await Official.findById(this.getQuery().officialId)
+      if (official) {
+        await official.updateAverageRatings()
+      }
+    }
+  } catch (error) {
+    console.error('Error updating official ratings after rating delete:', error)
+  }
 })
 
 // Create and export the model

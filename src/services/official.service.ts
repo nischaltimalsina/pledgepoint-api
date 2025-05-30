@@ -135,7 +135,6 @@ export class OfficialService {
       const official = new Official({
         _id: new Types.ObjectId(),
         ...data,
-        ratings: [],
         averageRating: {
           integrity: 0,
           responsiveness: 0,
@@ -157,7 +156,7 @@ export class OfficialService {
   }
 
   /**
-   * Rate an official
+   * Rate an official - FIXED to work with standalone Rating model
    */
   static async rateOfficial(
     officialId: string,
@@ -202,7 +201,7 @@ export class OfficialService {
         ).toFixed(1)
       )
 
-      // Check if user has already rated this official using the Rating model
+      // Check if user has already rated this official
       let existingRating = await Rating.findOne({
         officialId: new Types.ObjectId(officialId),
         userId: new Types.ObjectId(userId),
@@ -219,12 +218,14 @@ export class OfficialService {
         existingRating.overall = overall
         existingRating.comment = ratingData.comment
         existingRating.evidence = ratingData.evidence
+        existingRating.status = 'pending' // Reset to pending for moderation
 
         await existingRating.save()
       } else {
         // Create new rating
         isNewRating = true
         existingRating = new Rating({
+          _id: new Types.ObjectId(),
           officialId: new Types.ObjectId(officialId),
           userId: new Types.ObjectId(userId),
           integrity: ratingData.integrity,
@@ -242,28 +243,9 @@ export class OfficialService {
         await existingRating.save()
       }
 
-      // Now update the official's ratings array as well
-      const existingRatingIndex = official.ratings.findIndex(
-        (rating) => rating.userId.toString() === userId
-      )
-
-      if (existingRatingIndex !== -1) {
-        official.ratings[existingRatingIndex] = new Rating({
-          ...official.ratings[existingRatingIndex],
-          integrity: ratingData.integrity,
-          responsiveness: ratingData.responsiveness,
-          effectiveness: ratingData.effectiveness,
-          transparency: ratingData.transparency,
-          overall,
-          comment: ratingData.comment,
-          evidence: ratingData.evidence,
-          updatedAt: new Date(),
-        })
-      }
-
-      // Recalculate average ratings for the official
-      official.calculateAverageRatings()
-      await official.save()
+      // FIXED: Use the correct method name from the Official model
+      // The Rating model middleware will automatically call this, but we can also call it manually
+      await official.updateAverageRatings()
 
       // Track activity and award points only if this is a new rating
       if (isNewRating) {
@@ -392,7 +374,7 @@ export class OfficialService {
   }
 
   /**
-   * Upvote a rating
+   * Upvote a rating - FIXED to work with standalone Rating model
    */
   static async upvoteRating(ratingId: string, userId: string) {
     try {
@@ -442,21 +424,6 @@ export class OfficialService {
 
       await rating.save()
 
-      // Also update this rating in the official document
-      const official = await Official.findById(rating.officialId)
-
-      if (official) {
-        const ratingIndex = official.ratings.findIndex(
-          (r) => r.userId.toString() === rating.userId.toString()
-        )
-
-        if (ratingIndex !== -1) {
-          official.ratings[ratingIndex].upvotes = rating.upvotes
-          official.ratings[ratingIndex].downvotes = rating.downvotes
-          await official.save()
-        }
-      }
-
       return rating
     } catch (error) {
       logger.error(`Error upvoting rating ${ratingId}:`, error)
@@ -465,7 +432,7 @@ export class OfficialService {
   }
 
   /**
-   * Downvote a rating
+   * Downvote a rating - FIXED to work with standalone Rating model
    */
   static async downvoteRating(ratingId: string, userId: string) {
     try {
@@ -509,21 +476,6 @@ export class OfficialService {
       }
 
       await rating.save()
-
-      // Also update this rating in the official document
-      const official = await Official.findById(rating.officialId)
-
-      if (official) {
-        const ratingIndex = official.ratings.findIndex(
-          (r) => r.userId.toString() === rating.userId.toString()
-        )
-
-        if (ratingIndex !== -1) {
-          official.ratings[ratingIndex].upvotes = rating.upvotes
-          official.ratings[ratingIndex].downvotes = rating.downvotes
-          await official.save()
-        }
-      }
 
       return rating
     } catch (error) {
