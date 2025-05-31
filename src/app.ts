@@ -26,6 +26,7 @@ import districtsRoutes from './routes/districts.routes'
 import ratingsRoutes from './routes/ratings.routes'
 import constituencyRoutes from './routes/constituencies.routes'
 import assemblyRoutes from './routes/assemblies.routes'
+import forumsRoutes from './routes/forums.routes'
 
 import { errorTrackingMiddleware, performanceTrackingMiddleware } from './middleware/error-tracking'
 
@@ -90,6 +91,7 @@ app.use('/api/v1/districts', districtsRoutes)
 app.use('/api/v1/ratings', ratingsRoutes)
 app.use('/api/v1/constituencies', constituencyRoutes)
 app.use('/api/v1/assemblies', assemblyRoutes)
+app.use('/api/v1/forums', forumsRoutes)
 
 // Error handler
 app.use(performanceTrackingMiddleware(5000)) // Track requests > 5s

@@ -4,6 +4,7 @@ export * from './badge.model';
 export * from './campaign.model';
 export * from './constituency.model';
 export * from './district.model';
+export * from './forum.model';
 export * from './learning-module.model';
 export * from './learning-progress.model';
 export * from './official.model';

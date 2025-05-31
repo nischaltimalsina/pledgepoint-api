@@ -9,18 +9,20 @@ import ratings from './ratings.routes'
 import badges from './badges.routes'
 import districts from './districts.routes'
 import admin from './admin.routes'
+import forums from './forums.routes'
 
-const router = Router();
+const router = Router()
 
-router.use('/auth', auth);
-router.use('/users', users);
-router.use('/officials', officials);
-router.use('/promises', promises);
-router.use('/campaigns', campaigns);
-router.use('/learning', learning);
-router.use('/ratings', ratings);
-router.use('/badges', badges);
-router.use('/districts', districts);
+router.use('/auth', auth)
+router.use('/users', users)
+router.use('/officials', officials)
+router.use('/promises', promises)
+router.use('/campaigns', campaigns)
+router.use('/learning', learning)
+router.use('/ratings', ratings)
+router.use('/badges', badges)
+router.use('/districts', districts)
+router.use('/forums', forums)
 router.use('/admin', admin);
 
 export default router;
