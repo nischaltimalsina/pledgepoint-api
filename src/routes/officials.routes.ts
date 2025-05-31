@@ -16,6 +16,9 @@ router.get('/:id', OfficialController.getOfficialById)
 // Get top rated officials
 router.get('/top-rated', OfficialController.getTopRatedOfficials)
 
+// Get all ratings for an official
+router.get('/:id/ratings', OfficialController.getOfficialRatings)
+
 // Create a new official (admin only)
 router.post(
   '/',

@@ -96,6 +96,32 @@ export class OfficialController {
   }
 
   /**
+   * Get all ratings for an official
+   * @route GET /api/officials/:id/ratings
+   */
+  static async getOfficialRatings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params
+      const { page, limit, sort, status, minRating, maxRating, userId } = req.query
+
+      const result = await OfficialService.getOfficialRatings(id, {
+        page: page ? parseInt(page as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+        sort: sort as string,
+        status: status as 'pending' | 'approved' | 'rejected',
+        minRating: minRating ? parseFloat(minRating as string) : undefined,
+        maxRating: maxRating ? parseFloat(maxRating as string) : undefined,
+        userId: userId as string,
+      })
+
+      res.status(200).json(result)
+    } catch (error) {
+      logger.error(`Error in getOfficialRatings controller for ID ${req.params.id}:`, error)
+      next(error)
+    }
+  }
+
+  /**
    * Update an official
    * @route PUT /api/officials/:id
    */

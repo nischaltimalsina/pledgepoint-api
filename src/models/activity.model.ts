@@ -44,13 +44,21 @@ const activitySchema = new Schema<IActivity>(
     },
     relatedType: {
       type: String,
-      enum: ['Official', 'Promise', 'Campaign', 'LearningModule', 'User'],
+      enum: [
+        'Official',
+        'Promise',
+        'Campaign',
+        'LearningModule',
+        'User',
+        'Discussion',
+        'Comment',
+        'Rating',
+      ],
       index: true,
     },
     pointsEarned: {
       pointsAwarded: {
         type: Number,
-        required: [true, 'Points awarded is required'],
         min: [0, 'Points awarded cannot be negative'],
       },
       streakInfo: {

@@ -294,6 +294,140 @@ export class OfficialService {
   }
 
   /**
+   * Get all ratings for an official with pagination and filtering
+   */
+  static async getOfficialRatings(
+    officialId: string,
+    options: {
+      page?: number
+      limit?: number
+      sort?: string
+      status?: 'pending' | 'approved' | 'rejected'
+      minRating?: number
+      maxRating?: number
+      userId?: string
+    } = {}
+  ) {
+    try {
+      // Validate official ID
+      if (!Types.ObjectId.isValid(officialId)) {
+        throw new AppError(400, 'Invalid official ID')
+      }
+
+      // Check if official exists
+      const official = await Official.findById(officialId)
+      if (!official) {
+        throw new AppError(404, 'Official not found')
+      }
+
+      const {
+        page = 1,
+        limit = 10,
+        sort = '-createdAt',
+        status,
+        minRating,
+        maxRating,
+        userId,
+      } = options
+
+      // Build filter for Rating model
+      const filter: any = { officialId: new Types.ObjectId(officialId) }
+
+      if (status) filter.status = status
+      if (userId) filter.userId = new Types.ObjectId(userId)
+      if (minRating !== undefined) filter.overall = { ...filter.overall, $gte: minRating }
+      if (maxRating !== undefined) filter.overall = { ...filter.overall, $lte: maxRating }
+
+      // Get ratings with pagination
+      const ratings = await Rating.find(filter)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('userId', 'firstName lastName photo gender')
+
+      // Get total count
+      const total = await Rating.countDocuments(filter)
+
+      // Calculate pagination metadata
+      const pages = Math.ceil(total / limit)
+      const hasNext = page < pages
+      const hasPrev = page > 1
+
+      // Calculate rating statistics
+      const stats = await Rating.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$overall' },
+            averageIntegrity: { $avg: '$integrity' },
+            averageResponsiveness: { $avg: '$responsiveness' },
+            averageEffectiveness: { $avg: '$effectiveness' },
+            averageTransparency: { $avg: '$transparency' },
+            totalRatings: { $sum: 1 },
+            ratingDistribution: {
+              $push: '$overall',
+            },
+          },
+        },
+      ])
+
+      // Calculate rating distribution
+      let distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      if (stats.length > 0 && stats[0].ratingDistribution) {
+        stats[0].ratingDistribution.forEach((rating: number) => {
+          const rounded = Math.round(rating)
+          if (rounded >= 1 && rounded <= 5) {
+            distribution[rounded as keyof typeof distribution]++
+          }
+        })
+      }
+
+      return {
+        data: ratings,
+        meta: {
+          total,
+          page,
+          limit,
+          pages,
+          hasNext,
+          hasPrev,
+        },
+        statistics:
+          stats.length > 0
+            ? {
+                averageRating: Math.round(stats[0].averageRating * 10) / 10,
+                averageIntegrity: Math.round(stats[0].averageIntegrity * 10) / 10,
+                averageResponsiveness: Math.round(stats[0].averageResponsiveness * 10) / 10,
+                averageEffectiveness: Math.round(stats[0].averageEffectiveness * 10) / 10,
+                averageTransparency: Math.round(stats[0].averageTransparency * 10) / 10,
+                totalRatings: stats[0].totalRatings,
+                distribution,
+              }
+            : {
+                averageRating: 0,
+                averageIntegrity: 0,
+                averageResponsiveness: 0,
+                averageEffectiveness: 0,
+                averageTransparency: 0,
+                totalRatings: 0,
+                distribution,
+              },
+        official: {
+          id: official._id,
+          name: official.name,
+          position: official.position,
+          district: official.district,
+          party: official.party,
+        },
+      }
+    } catch (error) {
+      logger.error(`Error fetching ratings for official ${officialId}:`, error)
+      throw error
+    }
+  }
+
+  /**
    * Update an official
    */
   static async updateOfficial(
