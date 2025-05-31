@@ -321,7 +321,6 @@ officialSchema.methods.updateAverageRatings = async function (): Promise<void> {
     // Get all approved ratings for this official
     const ratings = await Rating.find({
       officialId: this._id,
-      status: 'approved',
     })
 
     if (!ratings || ratings.length === 0) {

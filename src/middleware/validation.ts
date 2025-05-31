@@ -214,7 +214,7 @@ export const ValidationSchemas = {
       effectiveness: z.number().min(1).max(5),
       transparency: z.number().min(1).max(5),
       comment: z.string().min(10, 'Comment must be at least 10 characters').max(1000),
-      evidence: z.string().url('Evidence must be a valid URL'),
+      evidence: z.string().url('Evidence must be a valid URL').optional(),
     }),
 
     update: z.object({

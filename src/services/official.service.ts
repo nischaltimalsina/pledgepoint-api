@@ -167,7 +167,7 @@ export class OfficialService {
       effectiveness: number
       transparency: number
       comment: string
-      evidence: string
+      evidence?: string
     }
   ) {
     try {

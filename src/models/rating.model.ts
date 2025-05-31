@@ -53,7 +53,6 @@ export const ratingSchema = new Schema<IRating>(
     },
     evidence: {
       type: String,
-      required: [true, 'Evidence URL is required'],
       validate: {
         validator: function (v: string) {
           try {

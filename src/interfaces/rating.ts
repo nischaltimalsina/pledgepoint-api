@@ -12,7 +12,7 @@ export interface IRating extends Document {
   transparency: number
   overall: number
   comment: string
-  evidence: string
+  evidence?: string
   upvotes: Types.ObjectId[]
   downvotes: Types.ObjectId[]
   status?: 'pending' | 'approved' | 'rejected'
